@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "WhaleTranslator",
+  "version": "0.1.0",
+  "description": "Translate selected text or the current page with deepseek-v4-flash.",
+  "minimum_chrome_version": "114",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://100.115.209.7:4323/*"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "action": {
+    "default_title": "WhaleTranslator settings",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "commands": {
+    "translate-selection": {
+      "suggested_key": {
+        "default": "Alt+T"
+      },
+      "description": "Open WhaleTranslator"
+    },
+    "toggle-page-translation": {
+      "suggested_key": {
+        "default": "Alt+Shift+T"
+      },
+      "description": "Translate or restore this page"
+    }
+  }
+}

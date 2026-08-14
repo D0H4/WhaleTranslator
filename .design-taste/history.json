@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2026-08-14",
+    "mode": "build",
+    "brief": "Selection-anchored modeless translation panel with drag and resize",
+    "macrostructure": "selection-anchored-floating-split-workspace",
+    "theme": "atmospheric-dark-utility",
+    "theme_axes": {
+      "paper": "dark",
+      "display_role": "system-sans",
+      "accent": "cool"
+    },
+    "navigation": "none",
+    "footer": "none",
+    "motion": ["panel-entry", "stream-progress", "status-entry"],
+    "dials": {
+      "design": 5,
+      "motion": 3,
+      "density": 6
+    }
+  },
+  {
+    "date": "2026-08-14",
+    "mode": "build",
+    "brief": "Keyboard-first Whale Browser translation extension using camelAI DeepSeek streaming",
+    "macrostructure": "centered-utility-dialog-with-split-workspace",
+    "theme": "atmospheric-dark-utility",
+    "theme_axes": {
+      "paper": "dark",
+      "display_role": "system-sans",
+      "accent": "cool"
+    },
+    "navigation": "none",
+    "footer": "none",
+    "motion": ["dialog-entry", "stream-progress", "status-entry"],
+    "dials": {
+      "design": 5,
+      "motion": 3,
+      "density": 6
+    }
+  }
+]

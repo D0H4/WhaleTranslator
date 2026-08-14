@@ -1,0 +1,10 @@
+:root {
+  --preview-canvas: #090b0d;
+  --preview-text: #e9edf0;
+  --preview-muted: #607079;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--preview-text);
+  background: var(--preview-canvas);
+}
+body { min-height: 100dvh; margin: 0; background: var(--preview-canvas); }
+body::before { content: "WhaleTranslator / Interface preview"; position: fixed; top: 24px; left: 28px; color: var(--preview-muted); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
