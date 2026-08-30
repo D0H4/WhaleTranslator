@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RuntimeCommand, SettingsRequest, SettingsResponse } from "../shared/messages";
-import type { PublicSettings } from "../shared/settings";
+import { DEFAULT_SETTINGS, toPublicSettings, type PublicSettings } from "../shared/settings";
 import { PageTranslator, type PageTranslationState } from "./page-translator";
 import { requestTranslation } from "./translation-gateway";
 import { CloseIcon, RetryIcon, WhaleMark } from "./panel/icons";
@@ -11,7 +11,7 @@ export interface CommandBus {
   subscribe(listener: (command: RuntimeCommand) => void): () => void;
 }
 
-const FALLBACK_SETTINGS: PublicSettings = { hasApiKey: false, targetLanguage: "ko" };
+const FALLBACK_SETTINGS: PublicSettings = toPublicSettings(DEFAULT_SETTINGS);
 
 export function TranslatorShell({ bus }: { bus: CommandBus }) {
   const [settings, setSettings] = useState<PublicSettings>(FALLBACK_SETTINGS);

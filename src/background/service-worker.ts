@@ -11,6 +11,11 @@ import type {
   TranslationPortOutput
 } from "../shared/messages";
 import { buildConnectionTestMessages, buildPageMessages, buildTextMessages } from "../shared/prompts";
+import {
+  activeProvider,
+  resolveProviderInput,
+  type ProviderSettings
+} from "../shared/settings";
 
 const activeRequests = new Map<string, AbortController>();
 
@@ -37,9 +42,13 @@ function messagesFor(input: TranslationInput) {
   return buildConnectionTestMessages();
 }
 
-async function apiKeyFor(input: TranslationInput): Promise<string> {
-  if (input.mode === "connection-test" && input.apiKey?.trim()) return input.apiKey.trim();
-  return (await readSettings()).apiKey;
+async function providerFor(input: TranslationInput): Promise<ProviderSettings> {
+  const settings = await readSettings();
+  const current = activeProvider(settings);
+  if (input.mode !== "connection-test" || !input.provider) return current;
+  const provider = resolveProviderInput(input.provider, settings.providers.find(({ id }) => id === input.provider?.id));
+  if (!provider) throw new WhaleTranslatorError("invalid-provider");
+  return provider;
 }
 
 async function runTranslation(
@@ -47,8 +56,8 @@ async function runTranslation(
   input: TranslationInput,
   emit: (message: TranslationPortOutput) => void
 ): Promise<void> {
-  const apiKey = await apiKeyFor(input);
-  if (!apiKey) throw new WhaleTranslatorError("missing-key");
+  const provider = await providerFor(input);
+  if (!provider.apiKey) throw new WhaleTranslatorError("missing-key");
 
   const controller = new AbortController();
   activeRequests.get(requestId)?.abort();
@@ -57,14 +66,11 @@ async function runTranslation(
 
   try {
     const text = await streamCompletion({
-      apiKey,
+      provider,
       messages: messagesFor(input),
       signal: controller.signal,
       onDelta: (delta) => emit({ kind: "delta", requestId, text: delta })
     });
-    if (input.mode === "connection-test" && text.trim() !== "OK") {
-      throw new WhaleTranslatorError("invalid-response");
-    }
     emit({ kind: "complete", requestId, text });
   } finally {
     if (activeRequests.get(requestId) === controller) activeRequests.delete(requestId);
@@ -77,19 +83,14 @@ async function handleSettingsRequest(message: SettingsRequest): Promise<Settings
       return { ok: true, settings: await readPublicSettings() };
     }
     if (message.kind === "settings:save") {
-      const input = message.apiKey === undefined
-        ? { targetLanguage: message.targetLanguage }
-        : { apiKey: message.apiKey, targetLanguage: message.targetLanguage };
-      return { ok: true, settings: await saveSettings(input) };
+      return { ok: true, settings: await saveSettings(message) };
     }
 
     const settings = await readPublicSettings();
     const requestId = crypto.randomUUID();
     await runTranslation(
       requestId,
-      message.apiKey === undefined
-        ? { mode: "connection-test" }
-        : { mode: "connection-test", apiKey: message.apiKey },
+      { mode: "connection-test", provider: message.provider },
       () => undefined
     );
     return { ok: true, settings, tested: true };

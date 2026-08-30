@@ -2,10 +2,11 @@
   "manifest_version": 3,
   "name": "WhaleTranslator",
   "version": "0.1.0",
-  "description": "Translate selected text or the current page with deepseek-v4-flash.",
+  "description": "Translate selected text or the current page with configurable OpenAI-compatible providers.",
   "minimum_chrome_version": "114",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["http://100.115.209.7:4323/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "service-worker.js"
   },

@@ -4,10 +4,11 @@ import { describe, expect, it } from "vitest";
 const manifest = JSON.parse(readFileSync("static/manifest.json", "utf8"));
 
 describe("extension manifest", () => {
-  it("uses temporary page access and only the configured API host", () => {
+  it("keeps the legacy API host and requests additional provider hosts only when configured", () => {
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.permissions).toEqual(["activeTab", "scripting", "storage"]);
     expect(manifest.host_permissions).toEqual(["http://100.115.209.7:4323/*"]);
+    expect(manifest.optional_host_permissions).toEqual(["http://*/*", "https://*/*"]);
     expect(JSON.stringify(manifest)).not.toContain("<all_urls>");
   });
 

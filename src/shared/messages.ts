@@ -1,6 +1,6 @@
 import type { PublicError } from "./errors";
 import type { LanguageCode } from "./languages";
-import type { PublicSettings } from "./settings";
+import type { ProviderSettingsInput, PublicSettings } from "./settings";
 
 export type PageCommand = "translate-selection" | "toggle-page-translation";
 
@@ -11,8 +11,13 @@ export interface RuntimeCommand {
 
 export type SettingsRequest =
   | { kind: "settings:get" }
-  | { kind: "settings:save"; apiKey?: string; targetLanguage: LanguageCode }
-  | { kind: "settings:test"; apiKey?: string };
+  | {
+    kind: "settings:save";
+    providers: ProviderSettingsInput[];
+    activeProviderId: string;
+    targetLanguage: LanguageCode;
+  }
+  | { kind: "settings:test"; provider: ProviderSettingsInput };
 
 export type SettingsResponse =
   | { ok: true; settings: PublicSettings; tested?: boolean }
@@ -26,7 +31,7 @@ export interface PageTranslationItem {
 export type TranslationInput =
   | { mode: "text"; text: string; targetLanguage: LanguageCode }
   | { mode: "page"; items: readonly PageTranslationItem[]; targetLanguage: LanguageCode; repair?: boolean }
-  | { mode: "connection-test"; apiKey?: string };
+  | { mode: "connection-test"; provider?: ProviderSettingsInput };
 
 export type TranslationPortInput =
   | { kind: "start"; requestId: string; input: TranslationInput }

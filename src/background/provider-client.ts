@@ -1,10 +1,19 @@
 import { WhaleTranslatorError } from "../shared/errors";
 import type { ChatMessage } from "../shared/prompts";
+import {
+  DEFAULT_PROVIDER_BASE_URL,
+  DEFAULT_PROVIDER_MODEL,
+  type ProviderSettings
+} from "../shared/settings";
 import { collectAssistantDeltas } from "./sse";
 
-export const PROVIDER_BASE_URL = "http://100.115.209.7:4323/v1";
+export const PROVIDER_BASE_URL = DEFAULT_PROVIDER_BASE_URL;
 export const CHAT_COMPLETIONS_ENDPOINT = `${PROVIDER_BASE_URL}/chat/completions`;
-export const TRANSLATION_MODEL = "deepseek-v4-flash";
+export const TRANSLATION_MODEL = DEFAULT_PROVIDER_MODEL;
+
+export function chatCompletionsEndpoint(baseUrl: string): string {
+  return `${baseUrl.replace(/\/+$/u, "")}/chat/completions`;
+}
 
 function statusToError(status: number): WhaleTranslatorError {
   if (status === 401 || status === 403) return new WhaleTranslatorError("unauthorized");
@@ -15,7 +24,7 @@ function statusToError(status: number): WhaleTranslatorError {
 }
 
 export async function streamCompletion(options: {
-  apiKey: string;
+  provider: Pick<ProviderSettings, "apiKey" | "baseUrl" | "model">;
   messages: ChatMessage[];
   signal: AbortSignal;
   onDelta: (text: string) => void;
@@ -24,14 +33,14 @@ export async function streamCompletion(options: {
   const fetchImpl = options.fetchImpl ?? fetch;
   let response: Response;
   try {
-    response = await fetchImpl(CHAT_COMPLETIONS_ENDPOINT, {
+    response = await fetchImpl(chatCompletionsEndpoint(options.provider.baseUrl), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${options.apiKey}`,
+        Authorization: `Bearer ${options.provider.apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: TRANSLATION_MODEL,
+        model: options.provider.model,
         messages: options.messages,
         stream: true
       }),

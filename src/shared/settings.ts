@@ -1,35 +1,149 @@
 import { isLanguageCode, type LanguageCode } from "./languages";
 
-export interface ExtensionSettings {
+export const DEFAULT_PROVIDER_ID = "default";
+export const DEFAULT_PROVIDER_BASE_URL = "http://100.115.209.7:4323/v1";
+export const DEFAULT_PROVIDER_MODEL = "deepseek-v4-flash";
+
+export interface ProviderSettings {
+  id: string;
+  name: string;
+  baseUrl: string;
+  model: string;
   apiKey: string;
+}
+
+export interface PublicProviderSettings extends Omit<ProviderSettings, "apiKey"> {
+  hasApiKey: boolean;
+}
+
+export interface ProviderSettingsInput extends Omit<ProviderSettings, "apiKey"> {
+  apiKey?: string;
+  clearApiKey?: boolean;
+}
+
+export interface ExtensionSettings {
+  providers: ProviderSettings[];
+  activeProviderId: string;
   targetLanguage: LanguageCode;
 }
 
 export interface PublicSettings {
   hasApiKey: boolean;
+  providers: PublicProviderSettings[];
+  activeProviderId: string;
   targetLanguage: LanguageCode;
 }
 
+export const DEFAULT_PROVIDER: ProviderSettings = {
+  id: DEFAULT_PROVIDER_ID,
+  name: "기본 프로바이더",
+  baseUrl: DEFAULT_PROVIDER_BASE_URL,
+  model: DEFAULT_PROVIDER_MODEL,
+  apiKey: ""
+};
+
 export const DEFAULT_SETTINGS: ExtensionSettings = {
-  apiKey: "",
+  providers: [{ ...DEFAULT_PROVIDER }],
+  activeProviderId: DEFAULT_PROVIDER_ID,
   targetLanguage: "ko"
 };
 
+function cleanText(value: unknown, maxLength: number): string {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+export function normalizeProviderBaseUrl(value: unknown): string | null {
+  const text = cleanText(value, 2_048);
+  if (!text) return null;
+
+  try {
+    const url = new URL(text);
+    if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password) return null;
+    if (url.search || url.hash) return null;
+    return url.toString().replace(/\/$/u, "");
+  } catch {
+    return null;
+  }
+}
+
+function normalizeStoredProvider(value: unknown): ProviderSettings | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  const id = cleanText(candidate.id, 128);
+  const name = cleanText(candidate.name, 64);
+  const baseUrl = normalizeProviderBaseUrl(candidate.baseUrl);
+  const model = cleanText(candidate.model, 200);
+  if (!id || !name || !baseUrl || !model) return null;
+
+  return {
+    id,
+    name,
+    baseUrl,
+    model,
+    apiKey: cleanText(candidate.apiKey, 8_192)
+  };
+}
+
+export function resolveProviderInput(
+  input: ProviderSettingsInput,
+  existing?: ProviderSettings
+): ProviderSettings | null {
+  return normalizeStoredProvider({
+    ...input,
+    apiKey: input.clearApiKey ? "" : (input.apiKey === undefined ? existing?.apiKey ?? "" : input.apiKey)
+  });
+}
+
+export function activeProvider(settings: ExtensionSettings): ProviderSettings {
+  return settings.providers.find((provider) => provider.id === settings.activeProviderId) ?? settings.providers[0] ?? {
+    ...DEFAULT_PROVIDER
+  };
+}
+
 export function normalizeSettings(value: unknown): ExtensionSettings {
   if (!value || typeof value !== "object") {
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, providers: DEFAULT_SETTINGS.providers.map((provider) => ({ ...provider })) };
   }
 
   const candidate = value as Record<string, unknown>;
+  const seen = new Set<string>();
+  const providers = Array.isArray(candidate.providers)
+    ? candidate.providers.flatMap((provider) => {
+      const normalized = normalizeStoredProvider(provider);
+      if (!normalized || seen.has(normalized.id)) return [];
+      seen.add(normalized.id);
+      return [normalized];
+    })
+    : [];
+
+  if (providers.length === 0) {
+    providers.push({
+      ...DEFAULT_PROVIDER,
+      apiKey: cleanText(candidate.apiKey, 8_192)
+    });
+  }
+
+  const requestedActiveId = cleanText(candidate.activeProviderId, 128);
+  const activeProviderId = providers.some((provider) => provider.id === requestedActiveId)
+    ? requestedActiveId
+    : providers[0]?.id ?? DEFAULT_PROVIDER_ID;
+
   return {
-    apiKey: typeof candidate.apiKey === "string" ? candidate.apiKey.trim() : "",
+    providers,
+    activeProviderId,
     targetLanguage: isLanguageCode(candidate.targetLanguage) ? candidate.targetLanguage : "ko"
   };
 }
 
 export function toPublicSettings(settings: ExtensionSettings): PublicSettings {
+  const currentProvider = activeProvider(settings);
   return {
-    hasApiKey: settings.apiKey.length > 0,
+    hasApiKey: currentProvider.apiKey.length > 0,
+    providers: settings.providers.map(({ apiKey, ...provider }) => ({
+      ...provider,
+      hasApiKey: apiKey.length > 0
+    })),
+    activeProviderId: currentProvider.id,
     targetLanguage: settings.targetLanguage
   };
 }

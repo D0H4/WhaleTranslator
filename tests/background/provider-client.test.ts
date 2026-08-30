@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  CHAT_COMPLETIONS_ENDPOINT,
-  PROVIDER_BASE_URL,
+  chatCompletionsEndpoint,
   streamCompletion
 } from "../../src/background/provider-client";
 
@@ -10,24 +9,26 @@ function sseResponse(text: string) {
 }
 
 describe("streamCompletion", () => {
-  it("sends the expected OpenAI-compatible request", async () => {
+  it("uses the selected OpenAI-compatible provider URL, key, and model", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(sseResponse("번역"));
     const onDelta = vi.fn();
     const messages = [{ role: "user" as const, content: "hello" }];
     await expect(streamCompletion({
-      apiKey: "secret",
+      provider: {
+        apiKey: "secret",
+        baseUrl: "https://provider.example/v1/",
+        model: "translation-model"
+      },
       messages,
       signal: new AbortController().signal,
       onDelta,
       fetchImpl
     })).resolves.toBe("번역");
 
-    expect(PROVIDER_BASE_URL).toBe("http://100.115.209.7:4323/v1");
-    expect(CHAT_COMPLETIONS_ENDPOINT).toBe(`${PROVIDER_BASE_URL}/chat/completions`);
     const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(CHAT_COMPLETIONS_ENDPOINT);
+    expect(url).toBe(chatCompletionsEndpoint("https://provider.example/v1/"));
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer secret");
-    expect(JSON.parse(init.body as string)).toMatchObject({ model: "deepseek-v4-flash", messages, stream: true });
+    expect(JSON.parse(init.body as string)).toMatchObject({ model: "translation-model", messages, stream: true });
     expect(onDelta).toHaveBeenCalledWith("번역");
   });
 
@@ -39,7 +40,7 @@ describe("streamCompletion", () => {
   ])("maps HTTP %s to %s", async (status, code) => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response("", { status }));
     await expect(streamCompletion({
-      apiKey: "secret",
+      provider: { apiKey: "secret", baseUrl: "https://provider.example/v1", model: "model" },
       messages: [],
       signal: new AbortController().signal,
       onDelta: () => undefined,

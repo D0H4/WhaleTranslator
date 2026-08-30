@@ -1,4 +1,12 @@
-import { normalizeSettings, toPublicSettings, type ExtensionSettings, type PublicSettings } from "../shared/settings";
+import { WhaleTranslatorError } from "../shared/errors";
+import {
+  normalizeSettings,
+  resolveProviderInput,
+  toPublicSettings,
+  type ExtensionSettings,
+  type ProviderSettingsInput,
+  type PublicSettings
+} from "../shared/settings";
 import type { LanguageCode } from "../shared/languages";
 
 const STORAGE_KEY = "whaleTranslator.settings";
@@ -29,14 +37,25 @@ export async function readPublicSettings(area: LocalStorageArea = storageArea())
 }
 
 export async function saveSettings(
-  input: { apiKey?: string; targetLanguage: LanguageCode },
+  input: {
+    providers: readonly ProviderSettingsInput[];
+    activeProviderId: string;
+    targetLanguage: LanguageCode;
+  },
   area: LocalStorageArea = storageArea()
 ): Promise<PublicSettings> {
   const current = await readSettings(area);
-  const next = normalizeSettings({
-    apiKey: input.apiKey === undefined ? current.apiKey : input.apiKey,
-    targetLanguage: input.targetLanguage
-  });
+  const existingById = new Map(current.providers.map((provider) => [provider.id, provider]));
+  const providers = input.providers.map((provider) => resolveProviderInput(provider, existingById.get(provider.id)));
+  const inputIds = new Set(input.providers.map((provider) => provider.id.trim()));
+  if (providers.length === 0 || providers.some((provider) => provider === null) || inputIds.size !== providers.length) {
+    throw new WhaleTranslatorError("invalid-provider");
+  }
+  const validProviders = providers.filter((provider) => provider !== null);
+  if (!validProviders.some((provider) => provider.id === input.activeProviderId)) {
+    throw new WhaleTranslatorError("invalid-provider");
+  }
+  const next = normalizeSettings({ providers: validProviders, activeProviderId: input.activeProviderId, targetLanguage: input.targetLanguage });
   await area.set({ [STORAGE_KEY]: next });
   return toPublicSettings(next);
 }

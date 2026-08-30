@@ -1,14 +1,16 @@
 # WhaleTranslator
 
-WhaleTranslator는 Whale Browser를 포함한 Chromium 브라우저에서 선택한 텍스트나 현재 페이지를 `deepseek-v4-flash`로 번역하는 Manifest V3 확장 프로그램입니다.
+WhaleTranslator는 Whale Browser를 포함한 Chromium 브라우저에서 선택한 텍스트나 현재 페이지를 OpenAI 호환 번역 API로 번역하는 Manifest V3 확장 프로그램입니다. 여러 프로바이더 프로필을 저장하고 그중 하나를 활성화할 수 있습니다.
+
+Discord 클라이언트 플러그인으로 옮길 때 필요한 동작 계약과 구조는 [Discord 플러그인 포팅 가이드](docs/DISCORD_PORTING.md)에 정리되어 있습니다.
 
 ## 준비
 
 - Node.js 22.13 이상
-- API 키
+- OpenAI 호환 API의 Base URL, 모델 ID, API 키
 - Whale Browser 또는 Chromium 기반 브라우저
 
-API base URL은 `http://100.115.209.7:4323/v1`이며, 실제 번역 요청은 `http://100.115.209.7:4323/v1/chat/completions`로 전송됩니다. 별도의 `.env` 파일은 사용하지 않습니다.
+최초 기본 프로필은 Base URL `http://100.115.209.7:4323/v1`과 모델 `deepseek-v4-flash`를 사용합니다. 실제 요청은 각 프로필의 Base URL 뒤에 `/chat/completions`를 붙인 주소로 전송됩니다. 별도의 `.env` 파일은 사용하지 않습니다.
 
 ## 빌드 및 설치
 
@@ -21,10 +23,12 @@ Whale의 확장 프로그램 관리 화면에서 개발자 모드를 켜고, `�
 
 확장 아이콘을 누른 뒤 다음 설정을 저장합니다.
 
-1. API 키
-2. 기본 도착 언어. 최초 기본값은 한국어입니다.
+1. 프로바이더 이름
+2. OpenAI 호환 API Base URL
+3. 모델 ID와 API 키
+4. 기본 도착 언어. 최초 기본값은 한국어입니다.
 
-`연결 테스트`는 `deepseek-v4-flash`에 매우 짧은 확인 요청을 보냅니다. 저장된 키는 다시 화면에 표시되지 않습니다.
+`추가`로 프로바이더 프로필을 여러 개 만들 수 있습니다. 목록에서 선택한 프로필이 활성 프로바이더가 되며, `연결 테스트`는 편집 중인 프로필에 매우 짧은 확인 요청을 보냅니다. 저장된 키는 다시 화면에 표시되지 않습니다.
 
 ## 사용법
 
@@ -50,9 +54,9 @@ Whale의 확장 프로그램 관리 화면에서 개발자 모드를 켜고, `�
 
 ## 권한과 개인정보
 
-WhaleTranslator는 `activeTab`, `scripting`, `storage` 권한과 설정된 번역 API 호스트 접근만 요청합니다. 모든 웹사이트를 상시 읽는 `<all_urls>` 권한은 사용하지 않습니다. 사용자가 확장 단축키를 누른 현재 탭에만 콘텐츠 런타임을 주입합니다.
+WhaleTranslator는 `activeTab`, `scripting`, `storage` 권한을 사용합니다. 최초 기본 API 호스트 외의 프로바이더를 저장하거나 테스트할 때는 해당 HTTP(S) 호스트에 대한 선택적 접근 권한을 사용자에게 요청합니다. 모든 웹사이트를 상시 읽는 `<all_urls>` 권한은 사용하지 않습니다. 사용자가 확장 단축키를 누른 현재 탭에만 콘텐츠 런타임을 주입합니다.
 
-번역을 실행하면 선택하거나 입력한 텍스트 또는 페이지의 번역 대상 텍스트가 번역 API로 전송됩니다. API 키는 `chrome.storage.local`에 저장되고, 서비스 워커만 읽습니다. 페이지와 콘텐츠 스크립트에는 키를 전달하지 않습니다. 브라우저 확장 로컬 저장소는 운영체제 키체인과 동일한 보안 저장소가 아닙니다.
+번역을 실행하면 선택하거나 입력한 텍스트 또는 페이지의 번역 대상 텍스트가 활성 프로바이더로 전송됩니다. 프로바이더별 API 키는 `chrome.storage.local`에 저장되고, 서비스 워커만 읽습니다. 페이지와 콘텐츠 스크립트에는 키를 전달하지 않습니다. 브라우저 확장 로컬 저장소는 운영체제 키체인과 동일한 보안 저장소가 아닙니다.
 
 ## 전체 페이지 번역 범위
 
@@ -76,4 +80,4 @@ npm test
 npm run build
 ```
 
-한 번에 실행하려면 `npm run check`를 사용합니다. UI 미리보기는 `npm run dev` 실행 후 `/preview.html?state=success`에서 확인할 수 있으며 `idle`, `streaming`, `error`, `missing-key` 상태를 지원합니다.
+한 번에 실행하려면 `npm run check`를 사용합니다. 번역 패널 미리보기는 `npm run dev` 실행 후 `/preview.html?state=success`에서 확인할 수 있으며 `idle`, `streaming`, `error`, `missing-key` 상태를 지원합니다. 프로바이더 설정 컨트롤의 8개 상호작용 상태는 `/provider-preview.html`에서 확인할 수 있습니다.

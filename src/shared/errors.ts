@@ -1,5 +1,6 @@
 export type ErrorCode =
   | "missing-key"
+  | "invalid-provider"
   | "unauthorized"
   | "rate-limited"
   | "network"
@@ -20,6 +21,11 @@ const ERROR_COPY: Record<ErrorCode, Omit<PublicError, "code">> = {
   "missing-key": {
     title: "API 키가 필요해요",
     message: "확장 아이콘을 눌러 API 키를 먼저 저장해 주세요.",
+    action: "설정 확인"
+  },
+  "invalid-provider": {
+    title: "프로바이더 설정을 확인해 주세요",
+    message: "이름, HTTP(S) Base URL, 모델을 모두 입력해 주세요.",
     action: "설정 확인"
   },
   unauthorized: {
