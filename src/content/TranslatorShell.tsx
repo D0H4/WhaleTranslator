@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RuntimeCommand, SettingsRequest, SettingsResponse } from "../shared/messages";
-import { DEFAULT_SETTINGS, toPublicSettings, type PublicSettings } from "../shared/settings";
+import { DEFAULT_PROVIDER_MODEL, DEFAULT_SETTINGS, toPublicSettings, type PublicSettings } from "../shared/settings";
 import { PageTranslator, type PageTranslationState } from "./page-translator";
 import { requestTranslation } from "./translation-gateway";
 import { CloseIcon, RetryIcon, WhaleMark } from "./panel/icons";
@@ -59,6 +59,10 @@ export function TranslatorShell({ bus }: { bus: CommandBus }) {
     void refreshSettings().then((next) => pageTranslator.start(document.body, next.targetLanguage));
   }), [bus, pageTranslator, refreshSettings]);
 
+  const model = settings.providers.find(({ id }) => id === settings.activeProviderId)?.model
+    ?? settings.providers[0]?.model
+    ?? DEFAULT_PROVIDER_MODEL;
+
   return (
     <>
       {panel && (
@@ -67,6 +71,7 @@ export function TranslatorShell({ bus }: { bus: CommandBus }) {
           initialText={panel.text}
           anchor={panel.anchor}
           defaultTarget={settings.targetLanguage}
+          model={model}
           hasApiKey={settings.hasApiKey}
           onClose={() => setPanel(null)}
         />

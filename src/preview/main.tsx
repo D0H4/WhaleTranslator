@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { WhaleTranslatorError } from "../shared/errors";
+import { DEFAULT_PROVIDER_MODEL } from "../shared/settings";
 import type { TranslationHandle } from "../content/translation-gateway";
 import { TranslatorPanel } from "../content/panel/TranslatorPanel";
 import panelStyles from "../content/panel/panel.css?inline";
@@ -49,6 +50,7 @@ createRoot(mount).render(
     initialText={state === "idle" ? "" : "Whales recognize each other's voices even in the deep ocean."}
     anchor={{ left: 72, top: 72, right: 260, bottom: 94 }}
     defaultTarget="ko"
+    model={DEFAULT_PROVIDER_MODEL}
     hasApiKey={state !== "missing-key"}
     gateway={previewGateway as never}
     onClose={() => undefined}

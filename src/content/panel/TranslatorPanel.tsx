@@ -14,6 +14,7 @@ type TranslateGateway = typeof defaultTranslate;
 export interface TranslatorPanelProps {
   initialText: string;
   defaultTarget: LanguageCode;
+  model: string;
   hasApiKey: boolean;
   onClose: () => void;
   anchor?: SelectionAnchor | null;
@@ -27,7 +28,7 @@ function countCharacters(value: string): number {
   return Array.from(value).length;
 }
 
-export function TranslatorPanel({ initialText, defaultTarget, hasApiKey, onClose, anchor = null, gateway = defaultTranslate }: TranslatorPanelProps) {
+export function TranslatorPanel({ initialText, defaultTarget, model, hasApiKey, onClose, anchor = null, gateway = defaultTranslate }: TranslatorPanelProps) {
   const [source, setSource] = useState(initialText);
   const [targetLanguage, setTargetLanguage] = useState(defaultTarget);
   const [translation, setTranslation] = useState("");
@@ -128,7 +129,7 @@ export function TranslatorPanel({ initialText, defaultTarget, hasApiKey, onClose
             <WhaleMark className="wt-mark" />
             <div>
               <h1 id="wt-title">WhaleTranslator</h1>
-              <p>deepseek-v4-flash</p>
+              <p>{model}</p>
             </div>
           </div>
           <div className="wt-window-controls" data-no-drag>

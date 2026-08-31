@@ -23,14 +23,14 @@ describe("TranslatorPanel", () => {
     });
   });
 
-  it("shows the model without provider branding", () => {
-    render(<TranslatorPanel initialText="" defaultTarget="ko" hasApiKey onClose={vi.fn()} gateway={successfulGateway()} />);
-    expect(screen.getByText("deepseek-v4-flash")).toBeInTheDocument();
+  it("shows the active provider model", () => {
+    render(<TranslatorPanel initialText="" defaultTarget="ko" model="configured-model" hasApiKey onClose={vi.fn()} gateway={successfulGateway()} />);
+    expect(screen.getByText("configured-model")).toBeInTheDocument();
   });
 
   it("submits selected text on open and renders the result", async () => {
     const gateway = successfulGateway();
-    render(<TranslatorPanel initialText="Hello" defaultTarget="ko" hasApiKey onClose={vi.fn()} gateway={gateway} />);
+    render(<TranslatorPanel initialText="Hello" defaultTarget="ko" model="deepseek-v4-flash" hasApiKey onClose={vi.fn()} gateway={gateway} />);
     await waitFor(() => expect(gateway).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("안녕하세요")).toBeInTheDocument();
   });
@@ -38,7 +38,7 @@ describe("TranslatorPanel", () => {
   it("focuses empty input and submits with Ctrl+Enter", async () => {
     const user = userEvent.setup();
     const gateway = successfulGateway();
-    render(<TranslatorPanel initialText="" defaultTarget="ko" hasApiKey onClose={vi.fn()} gateway={gateway} />);
+    render(<TranslatorPanel initialText="" defaultTarget="ko" model="deepseek-v4-flash" hasApiKey onClose={vi.fn()} gateway={gateway} />);
     const input = screen.getByLabelText("원문");
     await waitFor(() => expect(input).toHaveFocus());
     await user.type(input, "Hello");
@@ -48,14 +48,14 @@ describe("TranslatorPanel", () => {
 
   it("shows missing-key guidance without sending text", async () => {
     const gateway = successfulGateway();
-    render(<TranslatorPanel initialText="Hello" defaultTarget="ko" hasApiKey={false} onClose={vi.fn()} gateway={gateway} />);
+    render(<TranslatorPanel initialText="Hello" defaultTarget="ko" model="deepseek-v4-flash" hasApiKey={false} onClose={vi.fn()} gateway={gateway} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("API 키가 필요해요");
     expect(gateway).not.toHaveBeenCalled();
   });
 
   it("copies completed translation", async () => {
     const user = userEvent.setup();
-    render(<TranslatorPanel initialText="Hello" defaultTarget="ko" hasApiKey onClose={vi.fn()} gateway={successfulGateway()} />);
+    render(<TranslatorPanel initialText="Hello" defaultTarget="ko" model="deepseek-v4-flash" hasApiKey onClose={vi.fn()} gateway={successfulGateway()} />);
     const copyButton = await screen.findByRole("button", { name: "번역문 복사" });
     await waitFor(() => expect(copyButton).toBeEnabled());
     await user.click(copyButton);
@@ -68,7 +68,7 @@ describe("TranslatorPanel", () => {
     const pageAction = vi.fn();
     render(
       <>
-        <TranslatorPanel initialText="" defaultTarget="ko" hasApiKey onClose={onClose} gateway={successfulGateway()} />
+        <TranslatorPanel initialText="" defaultTarget="ko" model="deepseek-v4-flash" hasApiKey onClose={onClose} gateway={successfulGateway()} />
         <button type="button" onClick={pageAction}>페이지 동작</button>
       </>
     );
