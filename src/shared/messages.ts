@@ -15,8 +15,10 @@ export type SettingsRequest =
     kind: "settings:save";
     providers: ProviderSettingsInput[];
     activeProviderId: string;
+    fallbackProviderIds: string[];
     targetLanguage: LanguageCode;
   }
+  | { kind: "settings:remove-provider"; providerId: string }
   | { kind: "settings:test"; provider: ProviderSettingsInput };
 
 export type SettingsResponse =

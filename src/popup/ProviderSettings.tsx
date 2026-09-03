@@ -24,8 +24,8 @@ export function providerFieldError(provider: ProviderDraft, field: ProviderField
 }
 
 interface ProviderSettingsEditorProps {
-  providers: ProviderDraft[];
-  activeProviderId: string;
+  providers: readonly ProviderDraft[];
+  selectedProviderId: string;
   touchedFields: ReadonlySet<string>;
   busy: boolean;
   state?: ProviderEditorState;
@@ -41,7 +41,7 @@ interface ProviderSettingsEditorProps {
 
 export function ProviderSettingsEditor({
   providers,
-  activeProviderId,
+  selectedProviderId,
   touchedFields,
   busy,
   state = "idle",
@@ -54,8 +54,26 @@ export function ProviderSettingsEditor({
   onTouch,
   onTest
 }: ProviderSettingsEditorProps) {
-  const provider = providers.find(({ id }) => id === activeProviderId) ?? providers[0];
-  if (!provider) return null;
+  const provider = providers.find(({ id }) => id === selectedProviderId) ?? providers[0];
+  const headingId = `${idPrefix}provider-heading`;
+  const heading = (
+    <div className="section-heading provider-heading-row">
+      <div>
+        <h2 id={headingId}>프로바이더</h2>
+        <p>OpenAI 호환 API 프로필</p>
+      </div>
+      <button className="add-provider-button" type="button" disabled={busy} onClick={onAdd}>추가</button>
+    </div>
+  );
+
+  if (!provider) {
+    return (
+      <section className="popup-section provider-section" aria-labelledby={headingId}>
+        {heading}
+        <p className="empty-provider-message">저장된 프로필이 없습니다. 새 프로필을 추가하거나 이 상태로 저장할 수 있습니다.</p>
+      </section>
+    );
+  }
 
   const hasUsableKey = Boolean(provider.apiKey.trim() || (provider.hasApiKey && !provider.clearApiKey));
   const fieldState = (field: ProviderField) => {
@@ -65,7 +83,6 @@ export function ProviderSettingsEditor({
   const nameError = fieldState("name");
   const baseUrlError = fieldState("baseUrl");
   const modelError = fieldState("model");
-  const headingId = `${idPrefix}provider-heading`;
   const nameId = `${idPrefix}provider-name`;
   const nameHelpId = `${idPrefix}provider-name-help`;
   const baseUrlId = `${idPrefix}provider-base-url`;
@@ -76,15 +93,9 @@ export function ProviderSettingsEditor({
 
   return (
     <section className="popup-section provider-section" aria-labelledby={headingId}>
-      <div className="section-heading provider-heading-row">
-        <div>
-          <h2 id={headingId}>프로바이더</h2>
-          <p>OpenAI 호환 API 프로필</p>
-        </div>
-        <button className="add-provider-button" type="button" disabled={busy} onClick={onAdd}>추가</button>
-      </div>
+      {heading}
 
-      <div className="provider-switcher" role="list" aria-label="저장할 프로바이더">
+      <div className="provider-switcher" role="list" aria-label="편집할 프로바이더">
         {providers.map((item) => (
           <div role="listitem" key={item.id}>
             <button
@@ -107,11 +118,11 @@ export function ProviderSettingsEditor({
 
       <div className={`provider-editor ${previewState ? `preview-${previewState}` : ""}`} data-state={state}>
         <div className="provider-editor-heading">
-          <strong>활성 프로필 편집</strong>
+          <strong>선택한 프로필 편집</strong>
           <button
             className="remove-provider-button"
             type="button"
-            disabled={busy || providers.length === 1}
+            disabled={busy}
             onClick={() => onRemove(provider.id)}
           >삭제</button>
         </div>
@@ -196,6 +207,95 @@ export function ProviderSettingsEditor({
           onClick={() => onTest(provider.id)}
         >{state === "loading" ? "연결 확인 중…" : "이 프로바이더 연결 테스트"}</button>
       </div>
+    </section>
+  );
+}
+
+interface ProviderRoutingEditorProps {
+  providers: readonly ProviderDraft[];
+  defaultProviderId: string;
+  fallbackProviderIds: readonly string[];
+  busy: boolean;
+  onDefaultChange: (id: string) => void;
+  onMoveFallback: (id: string, direction: "up" | "down") => void;
+}
+
+export function ProviderRoutingEditor({
+  providers,
+  defaultProviderId,
+  fallbackProviderIds,
+  busy,
+  onDefaultChange,
+  onMoveFallback
+}: ProviderRoutingEditorProps) {
+  const providersById = new Map(providers.map((provider) => [provider.id, provider]));
+  const defaultProvider = providersById.get(defaultProviderId) ?? providers[0];
+  const fallbackProviders = fallbackProviderIds.flatMap((id) => {
+    const provider = providersById.get(id);
+    return provider && provider.id !== defaultProvider?.id ? [provider] : [];
+  });
+
+  return (
+    <section className="popup-section routing-section" aria-labelledby="routing-heading">
+      <div className="section-heading routing-heading-row">
+        <div>
+          <h2 id="routing-heading">번역 경로</h2>
+          <p>기본 요청과 자동 fallback 우선순위</p>
+        </div>
+      </div>
+
+      {!defaultProvider ? (
+        <p className="empty-provider-message">프로바이더를 추가하면 기본값과 fallback 순서를 설정할 수 있습니다.</p>
+      ) : (
+        <>
+          <label className="field-label" htmlFor="default-provider">기본 프로바이더</label>
+          <select
+            id="default-provider"
+            value={defaultProvider.id}
+            disabled={busy}
+            onChange={(event) => onDefaultChange(event.target.value)}
+          >
+            {providers.map((provider) => (
+              <option value={provider.id} key={provider.id}>{provider.name || "이름 없는 프로바이더"}</option>
+            ))}
+          </select>
+          <p className="field-help">API 키가 없거나 응답 전에 연결 오류가 발생하면 다음 프로바이더를 시도합니다.</p>
+
+          <div className="fallback-heading">
+            <strong>Fallback 순서</strong>
+            <span>위에서부터 재시도</span>
+          </div>
+          {fallbackProviders.length === 0 ? (
+            <p className="fallback-empty">추가 fallback 프로바이더가 없습니다.</p>
+          ) : (
+            <ol className="fallback-list">
+              {fallbackProviders.map((provider, index) => (
+                <li key={provider.id}>
+                  <span className="fallback-rank" aria-hidden="true">{index + 2}</span>
+                  <span className="fallback-provider-copy">
+                    <strong>{provider.name || "이름 없는 프로바이더"}</strong>
+                    <small>{provider.model || "모델 미설정"}</small>
+                  </span>
+                  <span className="fallback-actions">
+                    <button
+                      type="button"
+                      disabled={busy || index === 0}
+                      aria-label={`${provider.name || "이름 없는 프로바이더"} 우선순위 올리기`}
+                      onClick={() => onMoveFallback(provider.id, "up")}
+                    >↑</button>
+                    <button
+                      type="button"
+                      disabled={busy || index === fallbackProviders.length - 1}
+                      aria-label={`${provider.name || "이름 없는 프로바이더"} 우선순위 내리기`}
+                      onClick={() => onMoveFallback(provider.id, "down")}
+                    >↓</button>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </>
+      )}
     </section>
   );
 }

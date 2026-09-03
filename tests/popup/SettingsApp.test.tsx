@@ -22,8 +22,13 @@ const savedSettings = {
     }
   ],
   activeProviderId: "default",
+  fallbackProviderIds: ["backup"],
   targetLanguage: "ko" as const
 };
+
+function providerList() {
+  return within(screen.getByRole("list", { name: "편집할 프로바이더" }));
+}
 
 describe("SettingsApp", () => {
   const sendMessage = vi.fn();
@@ -44,18 +49,20 @@ describe("SettingsApp", () => {
   it("shows every provider and the active model without exposing a saved key", async () => {
     render(<SettingsApp />);
     await screen.findByText("사용 준비됨");
-    expect(screen.getByRole("button", { name: /사내 API/ })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: /백업 API/ })).toBeInTheDocument();
+    expect(providerList().getByRole("button", { name: /사내 API/ })).toHaveAttribute("aria-pressed", "true");
+    expect(providerList().getByRole("button", { name: /백업 API/ })).toBeInTheDocument();
     const appHeading = screen.getByRole("heading", { name: "WhaleTranslator" });
     expect(appHeading.nextElementSibling).toHaveTextContent(/^translation-model$/);
     expect(screen.getByLabelText("API 키")).toHaveValue("");
   });
 
-  it("switches the active provider and saves all profiles while preserving blank keys", async () => {
+  it("selects a default provider separately from the profile being edited", async () => {
     const user = userEvent.setup();
     render(<SettingsApp />);
     await screen.findByText("사용 준비됨");
-    await user.click(screen.getByRole("button", { name: /백업 API/ }));
+    await user.click(providerList().getByRole("button", { name: /백업 API/ }));
+    expect(screen.getByLabelText("기본 프로바이더")).toHaveValue("default");
+    await user.selectOptions(screen.getByLabelText("기본 프로바이더"), "backup");
     await user.click(screen.getByRole("button", { name: "설정 저장" }));
 
     await waitFor(() => expect(sendMessage).toHaveBeenLastCalledWith({
@@ -65,11 +72,41 @@ describe("SettingsApp", () => {
         { id: "backup", name: "백업 API", baseUrl: "https://backup.example.com/v1", model: "backup-model" }
       ],
       activeProviderId: "backup",
+      fallbackProviderIds: ["default"],
       targetLanguage: "ko"
     }));
     expect(requestPermission).toHaveBeenCalledWith({
       origins: ["https://api.example.com/*"]
     });
+  });
+
+  it("reorders fallback providers independently of the default provider", async () => {
+    const thirdProvider = {
+      id: "third",
+      name: "세 번째 API",
+      baseUrl: "https://third.example.com/v1",
+      model: "third-model",
+      hasApiKey: false
+    };
+    const threeProviderSettings = {
+      ...savedSettings,
+      providers: [...savedSettings.providers, thirdProvider],
+      fallbackProviderIds: ["backup", "third"]
+    };
+    sendMessage.mockResolvedValue({ ok: true, settings: threeProviderSettings });
+
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await screen.findByRole("button", { name: "세 번째 API 우선순위 올리기" });
+    await user.click(screen.getByRole("button", { name: "세 번째 API 우선순위 올리기" }));
+    expect(screen.getByLabelText("기본 프로바이더")).toHaveValue("default");
+    await user.click(screen.getByRole("button", { name: "설정 저장" }));
+
+    await waitFor(() => expect(sendMessage).toHaveBeenLastCalledWith(expect.objectContaining({
+      kind: "settings:save",
+      activeProviderId: "default",
+      fallbackProviderIds: ["third", "backup"]
+    })));
   });
 
   it("does not request host access for provider presets without API keys", async () => {
@@ -92,13 +129,15 @@ describe("SettingsApp", () => {
         }
       ],
       activeProviderId: "groq",
+      fallbackProviderIds: ["nvidia-nim"],
       targetLanguage: "ko" as const
     };
     sendMessage.mockResolvedValue({ ok: true, settings: emptyPresetSettings });
 
     const user = userEvent.setup();
     render(<SettingsApp />);
-    await screen.findByRole("button", { name: /Groq 무료 티어/ });
+    await screen.findByRole("list", { name: "편집할 프로바이더" });
+    expect(providerList().getByRole("button", { name: /Groq 무료 티어/ })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "설정 저장" }));
 
     await waitFor(() => expect(sendMessage).toHaveBeenLastCalledWith({
@@ -118,9 +157,72 @@ describe("SettingsApp", () => {
         }
       ],
       activeProviderId: "groq",
+      fallbackProviderIds: ["nvidia-nim"],
       targetLanguage: "ko"
     }));
     expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it("removes the active provider and promotes the remaining provider", async () => {
+    const remainingSettings = {
+      hasApiKey: false,
+      providers: [savedSettings.providers[1]],
+      activeProviderId: "backup",
+      fallbackProviderIds: [],
+      targetLanguage: "ko" as const
+    };
+    sendMessage.mockImplementation(async (message: { kind: string }) => message.kind === "settings:get"
+      ? { ok: true, settings: savedSettings }
+      : { ok: true, settings: remainingSettings });
+
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await screen.findByText("사용 준비됨");
+
+    await user.click(screen.getByRole("button", { name: "삭제" }));
+
+    await waitFor(() => expect(providerList().queryByRole("button", { name: /사내 API/ })).not.toBeInTheDocument());
+    expect(providerList().getByRole("button", { name: /백업 API/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("프로필을 삭제했습니다.")).toBeInTheDocument();
+    expect(sendMessage).toHaveBeenLastCalledWith({ kind: "settings:remove-provider", providerId: "default" });
+    expect(requestPermission).not.toHaveBeenCalled();
+  });
+
+  it("removes and saves the last active provider", async () => {
+    const emptySettings = {
+      hasApiKey: false,
+      providers: [],
+      activeProviderId: "",
+      fallbackProviderIds: [],
+      targetLanguage: "ko" as const
+    };
+    sendMessage.mockImplementation(async (message: { kind: string }) => message.kind === "settings:get"
+      ? { ok: true, settings: { ...savedSettings, providers: [savedSettings.providers[0]] } }
+      : { ok: true, settings: emptySettings });
+
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await screen.findByRole("button", { name: /사내 API/ });
+
+    await user.click(screen.getByRole("button", { name: "삭제" }));
+
+    expect(await screen.findByText(/저장된 프로필이 없습니다/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
+    expect(sendMessage).toHaveBeenLastCalledWith({ kind: "settings:remove-provider", providerId: "default" });
+    expect(screen.getByText("프로필을 삭제했습니다.")).toBeInTheDocument();
+  });
+
+  it("cancels an unsaved provider locally without sending a delete request", async () => {
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await screen.findByText("사용 준비됨");
+
+    await user.click(screen.getByRole("button", { name: "추가" }));
+    await user.click(screen.getByRole("button", { name: "삭제" }));
+
+    expect(providerList().queryByRole("button", { name: /새 프로바이더/ })).not.toBeInTheDocument();
+    expect(screen.getByText("새 프로필 추가를 취소했습니다.")).toBeInTheDocument();
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "settings:remove-provider" }));
   });
 
   it("adds and configures another provider", async () => {
@@ -134,7 +236,7 @@ describe("SettingsApp", () => {
     await user.type(screen.getByLabelText("Base URL"), "https://personal.example/v1");
     await user.type(screen.getByLabelText("모델"), "personal-model");
     await user.type(screen.getByLabelText("API 키"), "new-secret");
-    expect(screen.getByRole("button", { name: /개인 API/ })).toBeInTheDocument();
+    expect(providerList().getByRole("button", { name: /개인 API/ })).toBeInTheDocument();
   });
 
   it("tests the edited provider without saving it first", async () => {

@@ -3,6 +3,7 @@ import {
   lockStorageAccess,
   readPublicSettings,
   readSettings,
+  removeProviderSettings,
   seedDefaultProviderPresets,
   saveSettings
 } from "./storage";
@@ -16,9 +17,14 @@ import type {
   TranslationPortInput,
   TranslationPortOutput
 } from "../shared/messages";
-import { buildConnectionTestMessages, buildPageMessages, buildTextMessages } from "../shared/prompts";
 import {
-  activeProvider,
+  buildConnectionTestMessages,
+  buildPageMessages,
+  buildTextMessages,
+  type ChatMessage
+} from "../shared/prompts";
+import {
+  orderedProviders,
   resolveProviderInput,
   type ProviderSettings
 } from "../shared/settings";
@@ -58,14 +64,61 @@ function messagesFor(input: TranslationInput) {
   return buildConnectionTestMessages();
 }
 
-async function providerFor(input: TranslationInput): Promise<ProviderSettings> {
+async function providersFor(input: TranslationInput): Promise<ProviderSettings[]> {
   await storageInitialization;
   const settings = await readSettings();
-  const current = activeProvider(settings);
-  if (input.mode !== "connection-test" || !input.provider) return current;
-  const provider = resolveProviderInput(input.provider, settings.providers.find(({ id }) => id === input.provider?.id));
-  if (!provider) throw new WhaleTranslatorError("invalid-provider");
-  return provider;
+  if (input.mode === "connection-test" && input.provider) {
+    const provider = resolveProviderInput(input.provider, settings.providers.find(({ id }) => id === input.provider?.id));
+    if (!provider) throw new WhaleTranslatorError("invalid-provider");
+    return [provider];
+  }
+
+  const providers = orderedProviders(settings);
+  if (providers.length === 0) throw new WhaleTranslatorError("invalid-provider");
+  return providers;
+}
+
+function canFallbackAfter(error: unknown): boolean {
+  return error instanceof WhaleTranslatorError && (
+    error.code === "unauthorized" ||
+    error.code === "rate-limited" ||
+    error.code === "network" ||
+    error.code === "service" ||
+    error.code === "invalid-response"
+  );
+}
+
+export async function streamWithProviderFallback(options: {
+  providers: readonly ProviderSettings[];
+  messages: ChatMessage[];
+  signal: AbortSignal;
+  onDelta: (text: string) => void;
+  completion?: typeof streamCompletion;
+}): Promise<string> {
+  const providers = options.providers.filter((provider) => provider.apiKey.length > 0);
+  if (providers.length === 0) throw new WhaleTranslatorError("missing-key");
+
+  const completion = options.completion ?? streamCompletion;
+  let lastError: unknown;
+  for (const provider of providers) {
+    let emittedOutput = false;
+    try {
+      return await completion({
+        provider,
+        messages: options.messages,
+        signal: options.signal,
+        onDelta: (delta) => {
+          if (delta.length > 0) emittedOutput = true;
+          options.onDelta(delta);
+        }
+      });
+    } catch (error) {
+      if (emittedOutput || !canFallbackAfter(error)) throw error;
+      lastError = error;
+    }
+  }
+
+  throw lastError ?? new WhaleTranslatorError("invalid-provider");
 }
 
 async function runTranslation(
@@ -73,8 +126,10 @@ async function runTranslation(
   input: TranslationInput,
   emit: (message: TranslationPortOutput) => void
 ): Promise<void> {
-  const provider = await providerFor(input);
-  if (!provider.apiKey) throw new WhaleTranslatorError("missing-key");
+  const providers = await providersFor(input);
+  if (!providers.some((provider) => provider.apiKey.length > 0)) {
+    throw new WhaleTranslatorError("missing-key");
+  }
 
   const controller = new AbortController();
   activeRequests.get(requestId)?.abort();
@@ -82,8 +137,8 @@ async function runTranslation(
   emit({ kind: "started", requestId });
 
   try {
-    const text = await streamCompletion({
-      provider,
+    const text = await streamWithProviderFallback({
+      providers,
       messages: messagesFor(input),
       signal: controller.signal,
       onDelta: (delta) => emit({ kind: "delta", requestId, text: delta })
@@ -102,6 +157,9 @@ async function handleSettingsRequest(message: SettingsRequest): Promise<Settings
     }
     if (message.kind === "settings:save") {
       return { ok: true, settings: await saveSettings(message) };
+    }
+    if (message.kind === "settings:remove-provider") {
+      return { ok: true, settings: await removeProviderSettings(message.providerId) };
     }
 
     const settings = await readPublicSettings();
@@ -135,7 +193,12 @@ function registerServiceWorker(): void {
   chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
     if (!message || typeof message !== "object" || !("kind" in message)) return false;
     const kind = (message as { kind?: unknown }).kind;
-    if (kind !== "settings:get" && kind !== "settings:save" && kind !== "settings:test") return false;
+    if (
+      kind !== "settings:get" &&
+      kind !== "settings:save" &&
+      kind !== "settings:remove-provider" &&
+      kind !== "settings:test"
+    ) return false;
     void handleSettingsRequest(message as SettingsRequest).then(sendResponse);
     return true;
   });

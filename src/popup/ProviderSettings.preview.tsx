@@ -33,7 +33,7 @@ function ProviderSettingsStatePreview() {
           <h2>{previewState}</h2>
           <ProviderSettingsEditor
             providers={[provider]}
-            activeProviderId={provider.id}
+            selectedProviderId={provider.id}
             touchedFields={previewState === "error" ? new Set([`${provider.id}:baseUrl`]) : new Set()}
             busy={previewState === "disabled" || previewState === "loading"}
             state={stateFor(previewState)}

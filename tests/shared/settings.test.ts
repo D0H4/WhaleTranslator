@@ -7,6 +7,7 @@ import {
   NVIDIA_PROVIDER,
   normalizeProviderBaseUrl,
   normalizeSettings,
+  orderedProviders,
   resolveProviderInput,
   toPublicSettings
 } from "../../src/shared/settings";
@@ -39,6 +40,7 @@ describe("settings", () => {
         { ...NVIDIA_PROVIDER }
       ],
       activeProviderId: DEFAULT_PROVIDER.id,
+      fallbackProviderIds: [GROQ_PROVIDER.id, NVIDIA_PROVIDER.id],
       targetLanguage: "ja"
     });
   });
@@ -57,6 +59,20 @@ describe("settings", () => {
         { id: "two", name: "Two", baseUrl: "http://localhost:4323/v1", model: "model-b", apiKey: "key-b" }
       ],
       activeProviderId: "two",
+      fallbackProviderIds: ["one"],
+      targetLanguage: "ko"
+    });
+  });
+
+  it("preserves an explicitly empty provider list", () => {
+    const settings = normalizeSettings({ providers: [], activeProviderId: "", targetLanguage: "ko" });
+
+    expect(settings).toEqual({ providers: [], activeProviderId: "", fallbackProviderIds: [], targetLanguage: "ko" });
+    expect(toPublicSettings(settings)).toEqual({
+      hasApiKey: false,
+      providers: [],
+      activeProviderId: "",
+      fallbackProviderIds: [],
       targetLanguage: "ko"
     });
   });
@@ -85,22 +101,41 @@ describe("settings", () => {
   it("never exposes provider keys in public settings", () => {
     const publicSettings = toPublicSettings({
       providers: [
-        { id: "one", name: "One", baseUrl: "https://one.example/v1", model: "model-a", apiKey: "secret" },
-        { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", apiKey: "" }
+        { id: "one", name: "One", baseUrl: "https://one.example/v1", model: "model-a", apiKey: "" },
+        { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", apiKey: "secret" }
       ],
       activeProviderId: "one",
+      fallbackProviderIds: ["two"],
       targetLanguage: "ja"
     });
     expect(publicSettings).toEqual({
       hasApiKey: true,
       providers: [
-        { id: "one", name: "One", baseUrl: "https://one.example/v1", model: "model-a", hasApiKey: true },
-        { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", hasApiKey: false }
+        { id: "one", name: "One", baseUrl: "https://one.example/v1", model: "model-a", hasApiKey: false },
+        { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", hasApiKey: true }
       ],
       activeProviderId: "one",
+      fallbackProviderIds: ["two"],
       targetLanguage: "ja"
     });
     expect(JSON.stringify(publicSettings)).not.toContain("secret");
+  });
+
+  it("keeps the selected default first and normalizes the fallback order", () => {
+    const settings = normalizeSettings({
+      providers: [
+        { id: "one", name: "One", baseUrl: "https://one.example/v1", model: "model-a", apiKey: "" },
+        { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", apiKey: "key-b" },
+        { id: "three", name: "Three", baseUrl: "https://three.example/v1", model: "model-c", apiKey: "key-c" }
+      ],
+      activeProviderId: "two",
+      fallbackProviderIds: ["three", "missing", "three"],
+      targetLanguage: "ko"
+    });
+
+    expect(settings.fallbackProviderIds).toEqual(["three", "one"]);
+    expect(orderedProviders(settings).map((provider) => provider.id)).toEqual(["two", "three", "one"]);
+    expect(toPublicSettings(settings).hasApiKey).toBe(true);
   });
 
   it("accepts only credential-free HTTP(S) base URLs", () => {

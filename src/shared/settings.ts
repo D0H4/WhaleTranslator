@@ -30,6 +30,7 @@ export interface ProviderSettingsInput extends Omit<ProviderSettings, "apiKey"> 
 export interface ExtensionSettings {
   providers: ProviderSettings[];
   activeProviderId: string;
+  fallbackProviderIds: string[];
   targetLanguage: LanguageCode;
 }
 
@@ -37,6 +38,7 @@ export interface PublicSettings {
   hasApiKey: boolean;
   providers: PublicProviderSettings[];
   activeProviderId: string;
+  fallbackProviderIds: string[];
   targetLanguage: LanguageCode;
 }
 
@@ -77,6 +79,7 @@ export const DEFAULT_PROVIDERS: readonly ProviderSettings[] = [
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   providers: DEFAULT_PROVIDERS.map((provider) => ({ ...provider })),
   activeProviderId: DEFAULT_PROVIDER_ID,
+  fallbackProviderIds: ADDITIONAL_DEFAULT_PROVIDERS.map((provider) => provider.id),
   targetLanguage: "ko"
 };
 
@@ -126,21 +129,57 @@ export function resolveProviderInput(
   });
 }
 
-export function activeProvider(settings: ExtensionSettings): ProviderSettings {
-  return settings.providers.find((provider) => provider.id === settings.activeProviderId) ?? settings.providers[0] ?? {
-    ...DEFAULT_PROVIDER
-  };
+export function activeProvider(settings: ExtensionSettings): ProviderSettings | undefined {
+  return settings.providers.find((provider) => provider.id === settings.activeProviderId) ?? settings.providers[0];
+}
+
+export function providerPriorityIds(
+  providers: readonly Pick<ProviderSettings, "id">[],
+  activeProviderId: string,
+  fallbackProviderIds: readonly string[]
+): string[] {
+  const providerIds = new Set(providers.map((provider) => provider.id));
+  const defaultProviderId = providerIds.has(activeProviderId) ? activeProviderId : providers[0]?.id;
+  if (!defaultProviderId) return [];
+
+  const seen = new Set([defaultProviderId]);
+  const priorityIds = [defaultProviderId];
+  for (const id of fallbackProviderIds) {
+    if (!providerIds.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    priorityIds.push(id);
+  }
+  for (const provider of providers) {
+    if (seen.has(provider.id)) continue;
+    seen.add(provider.id);
+    priorityIds.push(provider.id);
+  }
+  return priorityIds;
+}
+
+export function orderedProviders(settings: ExtensionSettings): ProviderSettings[] {
+  const providersById = new Map(settings.providers.map((provider) => [provider.id, provider]));
+  return providerPriorityIds(settings.providers, settings.activeProviderId, settings.fallbackProviderIds)
+    .flatMap((id) => {
+      const provider = providersById.get(id);
+      return provider ? [provider] : [];
+    });
 }
 
 export function normalizeSettings(value: unknown): ExtensionSettings {
   if (!value || typeof value !== "object") {
-    return { ...DEFAULT_SETTINGS, providers: DEFAULT_SETTINGS.providers.map((provider) => ({ ...provider })) };
+    return {
+      ...DEFAULT_SETTINGS,
+      providers: DEFAULT_SETTINGS.providers.map((provider) => ({ ...provider })),
+      fallbackProviderIds: [...DEFAULT_SETTINGS.fallbackProviderIds]
+    };
   }
 
   const candidate = value as Record<string, unknown>;
   const seen = new Set<string>();
-  const providers = Array.isArray(candidate.providers)
-    ? candidate.providers.flatMap((provider) => {
+  const providerValues: unknown[] | null = Array.isArray(candidate.providers) ? candidate.providers : null;
+  const providers = providerValues
+    ? providerValues.flatMap((provider) => {
       const normalized = normalizeStoredProvider(provider);
       if (!normalized || seen.has(normalized.id)) return [];
       seen.add(normalized.id);
@@ -148,7 +187,7 @@ export function normalizeSettings(value: unknown): ExtensionSettings {
     })
     : [];
 
-  if (providers.length === 0) {
+  if (!providerValues || (providerValues.length > 0 && providers.length === 0)) {
     const legacyApiKey = cleanText(candidate.apiKey, 8_192);
     providers.push(...DEFAULT_PROVIDERS.map((provider) => ({
       ...provider,
@@ -159,24 +198,31 @@ export function normalizeSettings(value: unknown): ExtensionSettings {
   const requestedActiveId = cleanText(candidate.activeProviderId, 128);
   const activeProviderId = providers.some((provider) => provider.id === requestedActiveId)
     ? requestedActiveId
-    : providers[0]?.id ?? DEFAULT_PROVIDER_ID;
+    : providers[0]?.id ?? "";
+  const requestedFallbackIds = Array.isArray(candidate.fallbackProviderIds)
+    ? candidate.fallbackProviderIds.map((id) => cleanText(id, 128)).filter(Boolean)
+    : [];
+  const fallbackProviderIds = providerPriorityIds(providers, activeProviderId, requestedFallbackIds).slice(1);
 
   return {
     providers,
     activeProviderId,
+    fallbackProviderIds,
     targetLanguage: isLanguageCode(candidate.targetLanguage) ? candidate.targetLanguage : "ko"
   };
 }
 
 export function toPublicSettings(settings: ExtensionSettings): PublicSettings {
   const currentProvider = activeProvider(settings);
+  const priorityProviders = orderedProviders(settings);
   return {
-    hasApiKey: currentProvider.apiKey.length > 0,
+    hasApiKey: priorityProviders.some((provider) => provider.apiKey.length > 0),
     providers: settings.providers.map(({ apiKey, ...provider }) => ({
       ...provider,
       hasApiKey: apiKey.length > 0
     })),
-    activeProviderId: currentProvider.id,
+    activeProviderId: currentProvider?.id ?? "",
+    fallbackProviderIds: priorityProviders.slice(1).map((provider) => provider.id),
     targetLanguage: settings.targetLanguage
   };
 }

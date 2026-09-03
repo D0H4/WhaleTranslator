@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { saveSettings, seedDefaultProviderPresets } from "../../src/background/storage";
+import {
+  removeProviderSettings,
+  saveSettings,
+  seedDefaultProviderPresets
+} from "../../src/background/storage";
 
 const STORAGE_KEY = "whaleTranslator.settings";
 
@@ -41,6 +45,7 @@ describe("provider settings storage", () => {
           }
         ],
         activeProviderId: "existing",
+        fallbackProviderIds: ["groq", "nvidia-nim"],
         targetLanguage: "ja"
       },
       "whaleTranslator.providerPresetsVersion": 2
@@ -79,27 +84,18 @@ describe("provider settings storage", () => {
           apiKey: "keep-me"
         }],
         activeProviderId: "groq",
+        fallbackProviderIds: [],
         targetLanguage: "ko"
       },
       "whaleTranslator.providerPresetsVersion": 2
     });
   });
 
-  it("does not restore a deleted Groq preset during the model update", async () => {
+  it("does not restore deleted provider presets during a model update", async () => {
     const set = vi.fn().mockResolvedValue(undefined);
     const area = {
       get: vi.fn().mockResolvedValue({
-        [STORAGE_KEY]: {
-          providers: [{
-            id: "existing",
-            name: "Existing",
-            baseUrl: "https://existing.example/v1",
-            model: "model",
-            apiKey: "keep-me"
-          }],
-          activeProviderId: "existing",
-          targetLanguage: "ko"
-        },
+        [STORAGE_KEY]: { providers: [], activeProviderId: "", targetLanguage: "ko" },
         "whaleTranslator.providerPresetsVersion": 1
       }),
       set
@@ -108,17 +104,7 @@ describe("provider settings storage", () => {
     await seedDefaultProviderPresets(area as never);
 
     expect(set).toHaveBeenCalledWith({
-      [STORAGE_KEY]: {
-        providers: [{
-          id: "existing",
-          name: "Existing",
-          baseUrl: "https://existing.example/v1",
-          model: "model",
-          apiKey: "keep-me"
-        }],
-        activeProviderId: "existing",
-        targetLanguage: "ko"
-      },
+      [STORAGE_KEY]: { providers: [], activeProviderId: "", fallbackProviderIds: [], targetLanguage: "ko" },
       "whaleTranslator.providerPresetsVersion": 2
     });
   });
@@ -145,6 +131,7 @@ describe("provider settings storage", () => {
         { id: "three", name: "Three", baseUrl: "https://three.example/v1", model: "model-c", apiKey: "new-key" }
       ],
       activeProviderId: "three",
+      fallbackProviderIds: ["two", "one"],
       targetLanguage: "ja"
     }, area as never);
 
@@ -162,7 +149,79 @@ describe("provider settings storage", () => {
           { id: "three", name: "Three", baseUrl: "https://three.example/v1", model: "model-c", apiKey: "new-key" }
         ],
         activeProviderId: "three",
+        fallbackProviderIds: ["two", "one"],
         targetLanguage: "ja"
+      }
+    });
+  });
+
+  it("stores an empty provider list when the last profile is deleted", async () => {
+    const area = {
+      get: vi.fn().mockResolvedValue({
+        [STORAGE_KEY]: {
+          providers: [
+            { id: "one", name: "One", baseUrl: "https://one.example/v1", model: "model-a", apiKey: "remove-me" }
+          ],
+          activeProviderId: "one",
+          targetLanguage: "ko"
+        }
+      }),
+      set: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const publicSettings = await removeProviderSettings("one", area as never);
+
+    expect(publicSettings).toEqual({
+      hasApiKey: false,
+      providers: [],
+      activeProviderId: "",
+      fallbackProviderIds: [],
+      targetLanguage: "ko"
+    });
+    expect(area.set).toHaveBeenCalledWith({
+      [STORAGE_KEY]: {
+        providers: [],
+        activeProviderId: "",
+        fallbackProviderIds: [],
+        targetLanguage: "ko"
+      }
+    });
+  });
+
+  it("atomically deletes the active provider and selects the remaining one", async () => {
+    const area = {
+      get: vi.fn().mockResolvedValue({
+        [STORAGE_KEY]: {
+          providers: [
+            { id: "one", name: "One", baseUrl: "https://one.example/v1", model: "model-a", apiKey: "key-a" },
+            { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", apiKey: "key-b" }
+          ],
+          activeProviderId: "one",
+          targetLanguage: "ko"
+        }
+      }),
+      set: vi.fn().mockResolvedValue(undefined)
+    };
+
+    const publicSettings = await removeProviderSettings("one", area as never);
+
+    expect(publicSettings).toEqual({
+      hasApiKey: true,
+      providers: [
+        { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", hasApiKey: true }
+      ],
+      activeProviderId: "two",
+      fallbackProviderIds: [],
+      targetLanguage: "ko"
+    });
+    expect(area.set).toHaveBeenCalledWith({
+      [STORAGE_KEY]: {
+        providers: [
+          { id: "two", name: "Two", baseUrl: "https://two.example/v1", model: "model-b", apiKey: "key-b" }
+        ],
+        activeProviderId: "two",
+        fallbackProviderIds: [],
+        targetLanguage: "ko"
       }
     });
   });
