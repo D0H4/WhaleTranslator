@@ -29,7 +29,7 @@ describe("provider settings storage", () => {
             id: "groq",
             name: "Groq 무료 티어",
             baseUrl: "https://api.groq.com/openai/v1",
-            model: "openai/gpt-oss-120b",
+            model: "qwen/qwen3.8-27b",
             apiKey: ""
           },
           {
@@ -43,15 +43,25 @@ describe("provider settings storage", () => {
         activeProviderId: "existing",
         targetLanguage: "ja"
       },
-      "whaleTranslator.providerPresetsVersion": 1
+      "whaleTranslator.providerPresetsVersion": 2
     });
   });
 
-  it("does not restore provider presets after their version was seeded", async () => {
+  it("updates the untouched Groq preset model while preserving its API key", async () => {
     const set = vi.fn().mockResolvedValue(undefined);
     const area = {
       get: vi.fn().mockResolvedValue({
-        [STORAGE_KEY]: { providers: [], activeProviderId: "", targetLanguage: "ko" },
+        [STORAGE_KEY]: {
+          providers: [{
+            id: "groq",
+            name: "Groq 무료 티어",
+            baseUrl: "https://api.groq.com/openai/v1",
+            model: "openai/gpt-oss-120b",
+            apiKey: "keep-me"
+          }],
+          activeProviderId: "groq",
+          targetLanguage: "ko"
+        },
         "whaleTranslator.providerPresetsVersion": 1
       }),
       set
@@ -59,7 +69,58 @@ describe("provider settings storage", () => {
 
     await seedDefaultProviderPresets(area as never);
 
-    expect(set).not.toHaveBeenCalled();
+    expect(set).toHaveBeenCalledWith({
+      [STORAGE_KEY]: {
+        providers: [{
+          id: "groq",
+          name: "Groq 무료 티어",
+          baseUrl: "https://api.groq.com/openai/v1",
+          model: "qwen/qwen3.8-27b",
+          apiKey: "keep-me"
+        }],
+        activeProviderId: "groq",
+        targetLanguage: "ko"
+      },
+      "whaleTranslator.providerPresetsVersion": 2
+    });
+  });
+
+  it("does not restore a deleted Groq preset during the model update", async () => {
+    const set = vi.fn().mockResolvedValue(undefined);
+    const area = {
+      get: vi.fn().mockResolvedValue({
+        [STORAGE_KEY]: {
+          providers: [{
+            id: "existing",
+            name: "Existing",
+            baseUrl: "https://existing.example/v1",
+            model: "model",
+            apiKey: "keep-me"
+          }],
+          activeProviderId: "existing",
+          targetLanguage: "ko"
+        },
+        "whaleTranslator.providerPresetsVersion": 1
+      }),
+      set
+    };
+
+    await seedDefaultProviderPresets(area as never);
+
+    expect(set).toHaveBeenCalledWith({
+      [STORAGE_KEY]: {
+        providers: [{
+          id: "existing",
+          name: "Existing",
+          baseUrl: "https://existing.example/v1",
+          model: "model",
+          apiKey: "keep-me"
+        }],
+        activeProviderId: "existing",
+        targetLanguage: "ko"
+      },
+      "whaleTranslator.providerPresetsVersion": 2
+    });
   });
 
   it("preserves omitted keys, stores new keys, and clears requested keys", async () => {

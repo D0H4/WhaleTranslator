@@ -20,7 +20,7 @@ describe("settings", () => {
       {
         ...GROQ_PROVIDER,
         baseUrl: "https://api.groq.com/openai/v1",
-        model: "openai/gpt-oss-120b"
+        model: "qwen/qwen3.8-27b"
       },
       {
         ...NVIDIA_PROVIDER,

@@ -13,7 +13,7 @@ Discord 클라이언트 플러그인으로 옮길 때 필요한 동작 계약과
 새 설치에는 다음 세 프로필이 기본으로 준비됩니다. API 키는 포함되지 않으며 직접 발급받아 입력해야 합니다.
 
 - 기존 기본 API: `http://100.115.209.7:4323/v1` / `deepseek-v4-flash`
-- [Groq 무료 티어](https://console.groq.com/keys): `https://api.groq.com/openai/v1` / `openai/gpt-oss-120b`
+- [Groq 무료 티어](https://console.groq.com/keys): `https://api.groq.com/openai/v1` / `qwen/qwen3.8-27b` (Preview)
 - [NVIDIA NIM 무료 엔드포인트](https://build.nvidia.com/deepseek-ai/deepseek-v4-flash-0731): `https://integrate.api.nvidia.com/v1` / `deepseek-ai/deepseek-v4-flash-0731`
 
 무료 사용량과 모델 제공 여부는 각 서비스의 정책에 따라 달라질 수 있습니다. 실제 요청은 각 프로필의 Base URL 뒤에 `/chat/completions`를 붙인 주소로 전송됩니다. 별도의 `.env` 파일은 사용하지 않습니다.

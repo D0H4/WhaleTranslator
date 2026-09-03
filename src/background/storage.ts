@@ -1,6 +1,10 @@
 import { WhaleTranslatorError } from "../shared/errors";
 import {
   ADDITIONAL_DEFAULT_PROVIDERS,
+  GROQ_PROVIDER,
+  GROQ_PROVIDER_BASE_URL,
+  GROQ_PROVIDER_ID,
+  GROQ_PROVIDER_MODEL,
   normalizeSettings,
   resolveProviderInput,
   toPublicSettings,
@@ -12,7 +16,8 @@ import type { LanguageCode } from "../shared/languages";
 
 const STORAGE_KEY = "whaleTranslator.settings";
 const PROVIDER_PRESETS_VERSION_KEY = "whaleTranslator.providerPresetsVersion";
-const PROVIDER_PRESETS_VERSION = 1;
+const PROVIDER_PRESETS_VERSION = 2;
+const PREVIOUS_GROQ_PROVIDER_MODEL = "openai/gpt-oss-120b";
 
 type LocalStorageArea = Pick<chrome.storage.StorageArea, "get" | "set"> & {
   setAccessLevel?: (options: { accessLevel: "TRUSTED_CONTEXTS" }) => Promise<void>;
@@ -47,13 +52,23 @@ export async function seedDefaultProviderPresets(area: LocalStorageArea = storag
   if (seededVersion >= PROVIDER_PRESETS_VERSION) return;
 
   const current = normalizeSettings(result[STORAGE_KEY]);
-  const existingIds = new Set(current.providers.map(({ id }) => id));
-  const providers = [
-    ...current.providers,
-    ...ADDITIONAL_DEFAULT_PROVIDERS
-      .filter(({ id }) => !existingIds.has(id))
-      .map((provider) => ({ ...provider }))
-  ];
+  const migratedProviders = current.providers.map((provider) => (
+    provider.id === GROQ_PROVIDER_ID &&
+    provider.name === GROQ_PROVIDER.name &&
+    provider.baseUrl === GROQ_PROVIDER_BASE_URL &&
+    provider.model === PREVIOUS_GROQ_PROVIDER_MODEL
+      ? { ...provider, model: GROQ_PROVIDER_MODEL }
+      : provider
+  ));
+  const existingIds = new Set(migratedProviders.map(({ id }) => id));
+  const providers = seededVersion === 0
+    ? [
+      ...migratedProviders,
+      ...ADDITIONAL_DEFAULT_PROVIDERS
+        .filter(({ id }) => !existingIds.has(id))
+        .map((provider) => ({ ...provider }))
+    ]
+    : migratedProviders;
   const next = normalizeSettings({ ...current, providers });
   await area.set({
     [STORAGE_KEY]: next,
