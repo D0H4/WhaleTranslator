@@ -1,5 +1,6 @@
 import { WhaleTranslatorError } from "../shared/errors";
 import {
+  ADDITIONAL_DEFAULT_PROVIDERS,
   normalizeSettings,
   resolveProviderInput,
   toPublicSettings,
@@ -10,6 +11,8 @@ import {
 import type { LanguageCode } from "../shared/languages";
 
 const STORAGE_KEY = "whaleTranslator.settings";
+const PROVIDER_PRESETS_VERSION_KEY = "whaleTranslator.providerPresetsVersion";
+const PROVIDER_PRESETS_VERSION = 1;
 
 type LocalStorageArea = Pick<chrome.storage.StorageArea, "get" | "set"> & {
   setAccessLevel?: (options: { accessLevel: "TRUSTED_CONTEXTS" }) => Promise<void>;
@@ -34,6 +37,28 @@ export async function readSettings(area: LocalStorageArea = storageArea()): Prom
 
 export async function readPublicSettings(area: LocalStorageArea = storageArea()): Promise<PublicSettings> {
   return toPublicSettings(await readSettings(area));
+}
+
+export async function seedDefaultProviderPresets(area: LocalStorageArea = storageArea()): Promise<void> {
+  const result = await area.get([STORAGE_KEY, PROVIDER_PRESETS_VERSION_KEY]);
+  const seededVersion = typeof result[PROVIDER_PRESETS_VERSION_KEY] === "number"
+    ? result[PROVIDER_PRESETS_VERSION_KEY]
+    : 0;
+  if (seededVersion >= PROVIDER_PRESETS_VERSION) return;
+
+  const current = normalizeSettings(result[STORAGE_KEY]);
+  const existingIds = new Set(current.providers.map(({ id }) => id));
+  const providers = [
+    ...current.providers,
+    ...ADDITIONAL_DEFAULT_PROVIDERS
+      .filter(({ id }) => !existingIds.has(id))
+      .map((provider) => ({ ...provider }))
+  ];
+  const next = normalizeSettings({ ...current, providers });
+  await area.set({
+    [STORAGE_KEY]: next,
+    [PROVIDER_PRESETS_VERSION_KEY]: PROVIDER_PRESETS_VERSION
+  });
 }
 
 export async function saveSettings(

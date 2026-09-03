@@ -68,8 +68,59 @@ describe("SettingsApp", () => {
       targetLanguage: "ko"
     }));
     expect(requestPermission).toHaveBeenCalledWith({
-      origins: ["https://api.example.com/*", "https://backup.example.com/*"]
+      origins: ["https://api.example.com/*"]
     });
+  });
+
+  it("does not request host access for provider presets without API keys", async () => {
+    const emptyPresetSettings = {
+      hasApiKey: false,
+      providers: [
+        {
+          id: "groq",
+          name: "Groq 무료 티어",
+          baseUrl: "https://api.groq.com/openai/v1",
+          model: "openai/gpt-oss-120b",
+          hasApiKey: false
+        },
+        {
+          id: "nvidia-nim",
+          name: "NVIDIA NIM 무료",
+          baseUrl: "https://integrate.api.nvidia.com/v1",
+          model: "deepseek-ai/deepseek-v4-flash-0731",
+          hasApiKey: false
+        }
+      ],
+      activeProviderId: "groq",
+      targetLanguage: "ko" as const
+    };
+    sendMessage.mockResolvedValue({ ok: true, settings: emptyPresetSettings });
+
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await screen.findByRole("button", { name: /Groq 무료 티어/ });
+    await user.click(screen.getByRole("button", { name: "설정 저장" }));
+
+    await waitFor(() => expect(sendMessage).toHaveBeenLastCalledWith({
+      kind: "settings:save",
+      providers: [
+        {
+          id: "groq",
+          name: "Groq 무료 티어",
+          baseUrl: "https://api.groq.com/openai/v1",
+          model: "openai/gpt-oss-120b"
+        },
+        {
+          id: "nvidia-nim",
+          name: "NVIDIA NIM 무료",
+          baseUrl: "https://integrate.api.nvidia.com/v1",
+          model: "deepseek-ai/deepseek-v4-flash-0731"
+        }
+      ],
+      activeProviderId: "groq",
+      targetLanguage: "ko"
+    }));
+    expect(requestPermission).not.toHaveBeenCalled();
   });
 
   it("adds and configures another provider", async () => {

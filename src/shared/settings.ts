@@ -3,6 +3,12 @@ import { isLanguageCode, type LanguageCode } from "./languages";
 export const DEFAULT_PROVIDER_ID = "default";
 export const DEFAULT_PROVIDER_BASE_URL = "http://100.115.209.7:4323/v1";
 export const DEFAULT_PROVIDER_MODEL = "deepseek-v4-flash";
+export const GROQ_PROVIDER_ID = "groq";
+export const GROQ_PROVIDER_BASE_URL = "https://api.groq.com/openai/v1";
+export const GROQ_PROVIDER_MODEL = "openai/gpt-oss-120b";
+export const NVIDIA_PROVIDER_ID = "nvidia-nim";
+export const NVIDIA_PROVIDER_BASE_URL = "https://integrate.api.nvidia.com/v1";
+export const NVIDIA_PROVIDER_MODEL = "deepseek-ai/deepseek-v4-flash-0731";
 
 export interface ProviderSettings {
   id: string;
@@ -42,8 +48,34 @@ export const DEFAULT_PROVIDER: ProviderSettings = {
   apiKey: ""
 };
 
+export const GROQ_PROVIDER: ProviderSettings = {
+  id: GROQ_PROVIDER_ID,
+  name: "Groq 무료 티어",
+  baseUrl: GROQ_PROVIDER_BASE_URL,
+  model: GROQ_PROVIDER_MODEL,
+  apiKey: ""
+};
+
+export const NVIDIA_PROVIDER: ProviderSettings = {
+  id: NVIDIA_PROVIDER_ID,
+  name: "NVIDIA NIM 무료",
+  baseUrl: NVIDIA_PROVIDER_BASE_URL,
+  model: NVIDIA_PROVIDER_MODEL,
+  apiKey: ""
+};
+
+export const ADDITIONAL_DEFAULT_PROVIDERS: readonly ProviderSettings[] = [
+  GROQ_PROVIDER,
+  NVIDIA_PROVIDER
+];
+
+export const DEFAULT_PROVIDERS: readonly ProviderSettings[] = [
+  DEFAULT_PROVIDER,
+  ...ADDITIONAL_DEFAULT_PROVIDERS
+];
+
 export const DEFAULT_SETTINGS: ExtensionSettings = {
-  providers: [{ ...DEFAULT_PROVIDER }],
+  providers: DEFAULT_PROVIDERS.map((provider) => ({ ...provider })),
   activeProviderId: DEFAULT_PROVIDER_ID,
   targetLanguage: "ko"
 };
@@ -117,10 +149,11 @@ export function normalizeSettings(value: unknown): ExtensionSettings {
     : [];
 
   if (providers.length === 0) {
-    providers.push({
-      ...DEFAULT_PROVIDER,
-      apiKey: cleanText(candidate.apiKey, 8_192)
-    });
+    const legacyApiKey = cleanText(candidate.apiKey, 8_192);
+    providers.push(...DEFAULT_PROVIDERS.map((provider) => ({
+      ...provider,
+      apiKey: provider.id === DEFAULT_PROVIDER_ID ? legacyApiKey : ""
+    })));
   }
 
   const requestedActiveId = cleanText(candidate.activeProviderId, 128);

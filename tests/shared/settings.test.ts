@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PROVIDER,
+  DEFAULT_PROVIDERS,
   DEFAULT_SETTINGS,
+  GROQ_PROVIDER,
+  NVIDIA_PROVIDER,
   normalizeProviderBaseUrl,
   normalizeSettings,
   resolveProviderInput,
@@ -9,13 +12,32 @@ import {
 } from "../../src/shared/settings";
 
 describe("settings", () => {
-  it("defaults to Korean and one empty provider", () => {
+  it("defaults to Korean with the local, Groq, and NVIDIA provider presets", () => {
     expect(normalizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
+    expect(DEFAULT_SETTINGS.providers).toEqual(DEFAULT_PROVIDERS);
+    expect(DEFAULT_SETTINGS.providers).toEqual([
+      DEFAULT_PROVIDER,
+      {
+        ...GROQ_PROVIDER,
+        baseUrl: "https://api.groq.com/openai/v1",
+        model: "openai/gpt-oss-120b"
+      },
+      {
+        ...NVIDIA_PROVIDER,
+        baseUrl: "https://integrate.api.nvidia.com/v1",
+        model: "deepseek-ai/deepseek-v4-flash-0731"
+      }
+    ]);
+    expect(DEFAULT_SETTINGS.providers.every(({ apiKey }) => apiKey === "")).toBe(true);
   });
 
-  it("migrates the legacy single API key into the default provider", () => {
+  it("migrates the legacy single API key into only the local default provider", () => {
     expect(normalizeSettings({ apiKey: " legacy-key ", targetLanguage: "ja" })).toEqual({
-      providers: [{ ...DEFAULT_PROVIDER, apiKey: "legacy-key" }],
+      providers: [
+        { ...DEFAULT_PROVIDER, apiKey: "legacy-key" },
+        { ...GROQ_PROVIDER },
+        { ...NVIDIA_PROVIDER }
+      ],
       activeProviderId: DEFAULT_PROVIDER.id,
       targetLanguage: "ja"
     });

@@ -45,9 +45,13 @@ function originPattern(baseUrl: string): string | null {
   return normalized ? `${new URL(normalized).origin}/*` : null;
 }
 
+function hasUsableApiKey(provider: ProviderDraft): boolean {
+  return Boolean(provider.apiKey.trim() || (provider.hasApiKey && !provider.clearApiKey));
+}
+
 async function requestProviderHostAccess(providers: readonly ProviderDraft[]): Promise<boolean> {
   if (!chrome.permissions?.request) return true;
-  const origins = [...new Set(providers.flatMap((provider) => {
+  const origins = [...new Set(providers.filter(hasUsableApiKey).flatMap((provider) => {
     const pattern = originPattern(provider.baseUrl);
     return pattern ? [pattern] : [];
   }))];
@@ -82,9 +86,7 @@ export function SettingsApp() {
     () => providers.find(({ id }) => id === activeProviderId) ?? providers[0],
     [activeProviderId, providers]
   );
-  const activeHasKey = Boolean(activeProvider && (
-    activeProvider.apiKey.trim() || (activeProvider.hasApiKey && !activeProvider.clearApiKey)
-  ));
+  const activeHasKey = Boolean(activeProvider && hasUsableApiKey(activeProvider));
 
   useEffect(() => {
     void sendSettings({ kind: "settings:get" }).then((response) => {

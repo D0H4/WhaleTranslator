@@ -10,7 +10,14 @@ Discord 클라이언트 플러그인으로 옮길 때 필요한 동작 계약과
 - OpenAI 호환 API의 Base URL, 모델 ID, API 키
 - Whale Browser 또는 Chromium 기반 브라우저
 
-최초 기본 프로필은 Base URL `http://100.115.209.7:4323/v1`과 모델 `deepseek-v4-flash`를 사용합니다. 실제 요청은 각 프로필의 Base URL 뒤에 `/chat/completions`를 붙인 주소로 전송됩니다. 별도의 `.env` 파일은 사용하지 않습니다.
+새 설치에는 다음 세 프로필이 기본으로 준비됩니다. API 키는 포함되지 않으며 직접 발급받아 입력해야 합니다.
+
+- 기존 기본 API: `http://100.115.209.7:4323/v1` / `deepseek-v4-flash`
+- [Groq 무료 티어](https://console.groq.com/keys): `https://api.groq.com/openai/v1` / `openai/gpt-oss-120b`
+- [NVIDIA NIM 무료 엔드포인트](https://build.nvidia.com/deepseek-ai/deepseek-v4-flash-0731): `https://integrate.api.nvidia.com/v1` / `deepseek-ai/deepseek-v4-flash-0731`
+
+무료 사용량과 모델 제공 여부는 각 서비스의 정책에 따라 달라질 수 있습니다. 실제 요청은 각 프로필의 Base URL 뒤에 `/chat/completions`를 붙인 주소로 전송됩니다. 별도의 `.env` 파일은 사용하지 않습니다.
+기존 설치에는 확장 업데이트 시 Groq와 NVIDIA NIM 프로필을 한 번만 추가합니다. 같은 ID의 프로필이 이미 있으면 유지하며, 추가된 프로필을 사용자가 삭제한 뒤에는 자동으로 복원하지 않습니다.
 
 ## 빌드 및 설치
 
@@ -54,7 +61,7 @@ Whale의 확장 프로그램 관리 화면에서 개발자 모드를 켜고, `�
 
 ## 권한과 개인정보
 
-WhaleTranslator는 `activeTab`, `scripting`, `storage` 권한을 사용합니다. 최초 기본 API 호스트 외의 프로바이더를 저장하거나 테스트할 때는 해당 HTTP(S) 호스트에 대한 선택적 접근 권한을 사용자에게 요청합니다. 모든 웹사이트를 상시 읽는 `<all_urls>` 권한은 사용하지 않습니다. 사용자가 확장 단축키를 누른 현재 탭에만 콘텐츠 런타임을 주입합니다.
+WhaleTranslator는 `activeTab`, `scripting`, `storage` 권한을 사용합니다. 기존 기본 API 호스트 외에 Groq와 NVIDIA NIM을 포함한 원격 프로바이더를 API 키와 함께 저장하거나 테스트할 때는 해당 HTTP(S) 호스트에 대한 선택적 접근 권한을 사용자에게 요청합니다. 키가 비어 있는 기본 프로필만으로는 접근 권한을 요청하지 않습니다. 모든 웹사이트를 상시 읽는 `<all_urls>` 권한은 사용하지 않습니다. 사용자가 확장 단축키를 누른 현재 탭에만 콘텐츠 런타임을 주입합니다.
 
 번역을 실행하면 선택하거나 입력한 텍스트 또는 페이지의 번역 대상 텍스트가 활성 프로바이더로 전송됩니다. 프로바이더별 API 키는 `chrome.storage.local`에 저장되고, 서비스 워커만 읽습니다. 페이지와 콘텐츠 스크립트에는 키를 전달하지 않습니다. 브라우저 확장 로컬 저장소는 운영체제 키체인과 동일한 보안 저장소가 아닙니다.
 

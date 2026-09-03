@@ -1,5 +1,11 @@
 import { streamCompletion } from "./provider-client";
-import { lockStorageAccess, readPublicSettings, readSettings, saveSettings } from "./storage";
+import {
+  lockStorageAccess,
+  readPublicSettings,
+  readSettings,
+  seedDefaultProviderPresets,
+  saveSettings
+} from "./storage";
 import { toPublicError, WhaleTranslatorError } from "../shared/errors";
 import type {
   PageCommand,
@@ -18,6 +24,16 @@ import {
 } from "../shared/settings";
 
 const activeRequests = new Map<string, AbortController>();
+let storageInitialization: Promise<void> = Promise.resolve();
+
+async function initializeStorage(): Promise<void> {
+  await lockStorageAccess();
+  try {
+    await seedDefaultProviderPresets();
+  } catch {
+    // Normalized settings still keep the extension usable if a one-time migration cannot be persisted.
+  }
+}
 
 function supportedPage(url: string | undefined): boolean {
   return Boolean(url && /^(https?|file):/i.test(url));
@@ -43,6 +59,7 @@ function messagesFor(input: TranslationInput) {
 }
 
 async function providerFor(input: TranslationInput): Promise<ProviderSettings> {
+  await storageInitialization;
   const settings = await readSettings();
   const current = activeProvider(settings);
   if (input.mode !== "connection-test" || !input.provider) return current;
@@ -79,6 +96,7 @@ async function runTranslation(
 
 async function handleSettingsRequest(message: SettingsRequest): Promise<SettingsResponse> {
   try {
+    await storageInitialization;
     if (message.kind === "settings:get") {
       return { ok: true, settings: await readPublicSettings() };
     }
@@ -101,9 +119,9 @@ async function handleSettingsRequest(message: SettingsRequest): Promise<Settings
 
 function registerServiceWorker(): void {
   chrome.runtime.onInstalled.addListener(() => {
-    void lockStorageAccess();
+    storageInitialization = initializeStorage();
   });
-  void lockStorageAccess();
+  storageInitialization = initializeStorage();
 
   chrome.commands.onCommand.addListener((command) => {
     if (command !== "translate-selection" && command !== "toggle-page-translation") return;
