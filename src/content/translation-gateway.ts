@@ -9,7 +9,8 @@ export interface TranslationHandle {
 
 export function translate(
   input: TranslationInput,
-  onDelta: (text: string) => void = () => undefined
+  onDelta: (text: string) => void = () => undefined,
+  onModel: (model: string | null) => void = () => undefined
 ): TranslationHandle {
   const requestId = crypto.randomUUID();
   const port = chrome.runtime.connect({ name: "whale-translator" });
@@ -33,6 +34,7 @@ export function translate(
     if (message.requestId !== requestId || settled) return;
     if (message.kind === "delta") onDelta(message.text);
     if (message.kind === "complete") {
+      onModel(message.model ?? null);
       settled = true;
       resolvePromise(message.text);
       port.disconnect();

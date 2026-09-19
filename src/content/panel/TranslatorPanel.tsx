@@ -32,6 +32,7 @@ export function TranslatorPanel({ initialText, defaultTarget, model, hasApiKey, 
   const [source, setSource] = useState(initialText);
   const [targetLanguage, setTargetLanguage] = useState(defaultTarget);
   const [translation, setTranslation] = useState("");
+  const [responseModel, setResponseModel] = useState<string | null>(null);
   const [status, setStatus] = useState<PanelStatus>(hasApiKey ? "idle" : "error");
   const [error, setError] = useState<PublicError | null>(hasApiKey ? null : getPublicError("missing-key"));
   const [copyStatus, setCopyStatus] = useState("");
@@ -67,11 +68,14 @@ export function TranslatorPanel({ initialText, defaultTarget, model, hasApiKey, 
 
     activeRequest.current?.cancel();
     setTranslation("");
+    setResponseModel(null);
     setError(null);
     setCopyStatus("");
     setStatus("streaming");
     const handle = gateway({ mode: "text", text, targetLanguage }, (delta) => {
       if (activeRequestId.current === handle.requestId) setTranslation((current) => current + delta);
+    }, (value) => {
+      if (activeRequestId.current === handle.requestId) setResponseModel(value);
     });
     activeRequest.current = handle;
     activeRequestId.current = handle.requestId;
@@ -129,7 +133,9 @@ export function TranslatorPanel({ initialText, defaultTarget, model, hasApiKey, 
             <WhaleMark className="wt-mark" />
             <div>
               <h1 id="wt-title">WhaleTranslator</h1>
-              <p>{model}</p>
+              <p>{status === "success"
+                ? responseModel === "auto" ? "auto (실제 모델 확인 불가)" : responseModel ?? "모델 정보 없음"
+                : status === "streaming" ? "응답 모델 확인 중…" : model}</p>
             </div>
           </div>
           <div className="wt-window-controls" data-no-drag>
@@ -223,15 +229,15 @@ export function TranslatorPanel({ initialText, defaultTarget, model, hasApiKey, 
           </section>
         </main>
 
-        <div className="wt-message-slot">
-          {error && status === "error" && (
+        {error && status === "error" && (
+          <div className="wt-message-slot">
             <div className={`wt-error wt-error-${error.code}`} role="alert">
               <span className="wt-error-pulse" aria-hidden="true" />
               <div><strong>{error.title}</strong><p>{error.message}</p></div>
             </div>
-          )}
-          <p className="wt-live" aria-live="polite">{status === "streaming" ? "번역 중" : ""}</p>
-        </div>
+          </div>
+        )}
+        <p className="wt-live" aria-live="polite">{status === "streaming" ? "번역 중" : ""}</p>
         <button
           className="wt-resize-handle"
           type="button"

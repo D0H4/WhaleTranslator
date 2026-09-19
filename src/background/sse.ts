@@ -1,6 +1,7 @@
 import { WhaleTranslatorError } from "../shared/errors";
 
 interface CompletionChunk {
+  model?: unknown;
   choices?: Array<{
     delta?: { content?: unknown };
   }>;
@@ -8,7 +9,8 @@ interface CompletionChunk {
 
 export async function collectAssistantDeltas(
   stream: ReadableStream<Uint8Array>,
-  onDelta: (text: string) => void = () => undefined
+  onDelta: (text: string) => void = () => undefined,
+  onModel: (model: string) => void = () => undefined
 ): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder("utf-8");
@@ -34,6 +36,7 @@ export async function collectAssistantDeltas(
       throw new WhaleTranslatorError("invalid-response", "Malformed SSE JSON");
     }
 
+    if (typeof parsed.model === "string" && parsed.model.trim()) onModel(parsed.model.trim());
     const content = parsed.choices?.[0]?.delta?.content;
     if (typeof content === "string" && content.length > 0) {
       output += content;

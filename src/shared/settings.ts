@@ -44,7 +44,7 @@ export interface PublicSettings {
 
 export const DEFAULT_PROVIDER: ProviderSettings = {
   id: DEFAULT_PROVIDER_ID,
-  name: "기본 프로바이더",
+  name: "camel Proxy",
   baseUrl: DEFAULT_PROVIDER_BASE_URL,
   model: DEFAULT_PROVIDER_MODEL,
   apiKey: ""
@@ -112,7 +112,7 @@ function normalizeStoredProvider(value: unknown): ProviderSettings | null {
 
   return {
     id,
-    name,
+    name: id === DEFAULT_PROVIDER_ID && name === "기본 프로바이더" ? DEFAULT_PROVIDER.name : name,
     baseUrl,
     model,
     apiKey: cleanText(candidate.apiKey, 8_192)

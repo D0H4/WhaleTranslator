@@ -1,0 +1,9 @@
+{
+  "date": "2026-08-29",
+  "framework": "React 19 + Vite",
+  "font_stack": "system sans + system mono",
+  "palette": "existing dark teal popup tokens",
+  "motion": "motion-cut; no motion library",
+  "spacing": "4px-derived scale",
+  "scope": "provider settings component"
+}

@@ -16,6 +16,21 @@ function successfulGateway(result = "안녕하세요") {
 }
 
 describe("TranslatorPanel", () => {
+  it.each([
+    ["actual-model", "actual-model"],
+    [null, "모델 정보 없음"],
+    ["auto", "auto (실제 모델 확인 불가)"]
+  ])("shows the response model after completion: %s", async (model, label) => {
+    const gateway: NonNullable<Parameters<typeof TranslatorPanel>[0]["gateway"]> = (_input, _onDelta, onModel) => ({
+      requestId: crypto.randomUUID(),
+      promise: Promise.resolve().then(() => { onModel?.(model); return "번역"; }),
+      cancel: vi.fn()
+    });
+    render(<TranslatorPanel initialText="Hello" defaultTarget="ko" model="configured-model" hasApiKey onClose={vi.fn()} gateway={gateway} />);
+    expect(await screen.findByText(label!)).toBeInTheDocument();
+    expect(screen.queryByText("configured-model")).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,

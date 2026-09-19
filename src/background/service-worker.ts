@@ -93,6 +93,7 @@ export async function streamWithProviderFallback(options: {
   messages: ChatMessage[];
   signal: AbortSignal;
   onDelta: (text: string) => void;
+  onModel?: (model: string | null) => void;
   completion?: typeof streamCompletion;
 }): Promise<string> {
   const providers = options.providers.filter((provider) => provider.apiKey.length > 0);
@@ -107,6 +108,7 @@ export async function streamWithProviderFallback(options: {
         provider,
         messages: options.messages,
         signal: options.signal,
+        onModel: (model) => options.onModel?.(model),
         onDelta: (delta) => {
           if (delta.length > 0) emittedOutput = true;
           options.onDelta(delta);
@@ -137,13 +139,15 @@ async function runTranslation(
   emit({ kind: "started", requestId });
 
   try {
+    let model: string | null = null;
     const text = await streamWithProviderFallback({
       providers,
       messages: messagesFor(input),
       signal: controller.signal,
+      onModel: (value) => { model = value; },
       onDelta: (delta) => emit({ kind: "delta", requestId, text: delta })
     });
-    emit({ kind: "complete", requestId, text });
+    emit({ kind: "complete", requestId, text, model });
   } finally {
     if (activeRequests.get(requestId) === controller) activeRequests.delete(requestId);
   }

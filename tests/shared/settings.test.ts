@@ -13,6 +13,13 @@ import {
 } from "../../src/shared/settings";
 
 describe("settings", () => {
+  it("renames the legacy default preset while preserving custom names", () => {
+    for (const [name, expected] of [["기본 프로바이더", "camel Proxy"], ["My proxy", "My proxy"]]) {
+      const settings = normalizeSettings({ providers: [{ ...DEFAULT_PROVIDER, name }] });
+      expect(settings.providers[0]?.name).toBe(expected);
+    }
+  });
+
   it("defaults to Korean with the local, Groq, and NVIDIA provider presets", () => {
     expect(normalizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(DEFAULT_SETTINGS.providers).toEqual(DEFAULT_PROVIDERS);

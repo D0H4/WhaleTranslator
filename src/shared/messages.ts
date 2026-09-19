@@ -42,5 +42,5 @@ export type TranslationPortInput =
 export type TranslationPortOutput =
   | { kind: "started"; requestId: string }
   | { kind: "delta"; requestId: string; text: string }
-  | { kind: "complete"; requestId: string; text: string }
+  | { kind: "complete"; requestId: string; text: string; model?: string | null }
   | { kind: "error"; requestId: string; error: PublicError };
