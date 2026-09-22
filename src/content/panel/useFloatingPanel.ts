@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import {
   clampPanelRect,
+  DEFAULT_PANEL_SIZING,
   getInitialPanelRect,
   movePanel,
   resizePanel,
   type PanelRect,
+  type PanelSizing,
   type SelectionAnchor,
   type ViewportSize
 } from "./floating-panel";
@@ -22,6 +24,10 @@ interface PointerSession {
 export interface UseFloatingPanelOptions {
   anchor: SelectionAnchor | null;
   onClose: () => void;
+  /** Default size and minimum size for this window. */
+  sizing?: PanelSizing;
+  /** Set to false when a parent window already decides what Escape closes. */
+  closeOnEscape?: boolean;
 }
 
 function getViewport(): ViewportSize {
@@ -45,8 +51,9 @@ function applyPanelRect(panel: HTMLDivElement | null, rect: PanelRect): void {
   panel.style.height = `${rect.height}px`;
 }
 
-export function useFloatingPanel({ anchor, onClose }: UseFloatingPanelOptions) {
-  const [initialRect] = useState(() => getInitialPanelRect(anchor, getViewport()));
+export function useFloatingPanel({ anchor, onClose, sizing = DEFAULT_PANEL_SIZING, closeOnEscape = true }: UseFloatingPanelOptions) {
+  const minSize = sizing.minSize;
+  const [initialRect] = useState(() => getInitialPanelRect(anchor, getViewport(), sizing));
   const panelRef = useRef<HTMLDivElement>(null);
   const rectRef = useRef(initialRect);
   const panelStyle = useMemo<CSSProperties>(() => toPanelStyle(initialRect), [initialRect]);
@@ -91,9 +98,9 @@ export function useFloatingPanel({ anchor, onClose }: UseFloatingPanelOptions) {
     const deltaX = event.clientX - session.originX;
     const deltaY = event.clientY - session.originY;
     updateRect(session.kind === "drag"
-      ? movePanel(session.startRect, deltaX, deltaY, getViewport())
-      : resizePanel(session.startRect, deltaX, deltaY, getViewport()));
-  }, [updateRect]);
+      ? movePanel(session.startRect, deltaX, deltaY, getViewport(), minSize)
+      : resizePanel(session.startRect, deltaX, deltaY, getViewport(), minSize));
+  }, [minSize, updateRect]);
 
   const endPointerSession = useCallback((event: PointerEvent<HTMLElement>) => {
     const session = pointerSession.current;
@@ -120,8 +127,8 @@ export function useFloatingPanel({ anchor, onClose }: UseFloatingPanelOptions) {
     if (event.key === "ArrowDown") deltaY = amount;
     if (deltaX === 0 && deltaY === 0) return;
     event.preventDefault();
-    updateRect(resizePanel(rectRef.current, deltaX, deltaY, getViewport()));
-  }, [updateRect]);
+    updateRect(resizePanel(rectRef.current, deltaX, deltaY, getViewport(), minSize));
+  }, [minSize, updateRect]);
 
   const onMoveKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
     const amount = event.shiftKey ? 48 : 16;
@@ -133,8 +140,8 @@ export function useFloatingPanel({ anchor, onClose }: UseFloatingPanelOptions) {
     if (event.key === "ArrowDown") deltaY = amount;
     if (deltaX === 0 && deltaY === 0) return;
     event.preventDefault();
-    updateRect(movePanel(rectRef.current, deltaX, deltaY, getViewport()));
-  }, [updateRect]);
+    updateRect(movePanel(rectRef.current, deltaX, deltaY, getViewport(), minSize));
+  }, [minSize, updateRect]);
 
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -146,16 +153,16 @@ export function useFloatingPanel({ anchor, onClose }: UseFloatingPanelOptions) {
       event.preventDefault();
       onClose();
     };
-    const onViewportResize = () => updateRect(clampPanelRect(rectRef.current, getViewport()));
+    const onViewportResize = () => updateRect(clampPanelRect(rectRef.current, getViewport(), minSize));
 
-    document.addEventListener("keydown", onKeyDown, true);
+    if (closeOnEscape) document.addEventListener("keydown", onKeyDown, true);
     window.addEventListener("resize", onViewportResize);
     return () => {
-      document.removeEventListener("keydown", onKeyDown, true);
+      if (closeOnEscape) document.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("resize", onViewportResize);
       previous?.focus();
     };
-  }, [onClose, updateRect]);
+  }, [closeOnEscape, minSize, onClose, updateRect]);
 
   return {
     panelRef,

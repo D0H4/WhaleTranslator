@@ -106,3 +106,87 @@ describe("TranslatorPanel", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe("TranslatorPanel dictionary", () => {
+  const ENTRY = JSON.stringify({
+    headword: "whale",
+    reading: "weɪl",
+    partOfSpeech: "noun",
+    primary: { meaning: "바다에 사는 거대한 포유류", tags: ["standard"] },
+    others: [],
+    examples: []
+  });
+
+  function dictionaryGateway() {
+    return vi.fn((input: { mode: string }, onDelta: (text: string) => void = () => undefined): TranslationHandle => {
+      const result = input.mode === "dictionary" ? ENTRY : "고래";
+      return {
+        requestId: crypto.randomUUID(),
+        promise: Promise.resolve().then(() => {
+          onDelta(result);
+          return result;
+        }),
+        cancel: vi.fn()
+      };
+    });
+  }
+
+  function selectInTextarea(textarea: HTMLTextAreaElement, start: number, end: number) {
+    textarea.setSelectionRange(start, end);
+    fireEvent.pointerUp(textarea, { clientX: 120, clientY: 140 });
+  }
+
+  it("hides the source editor when opened from a selection and reveals it from the footer", async () => {
+    const user = userEvent.setup();
+    render(<TranslatorPanel initialText="Whale" defaultTarget="ko" model="m" hasApiKey onClose={vi.fn()} gateway={dictionaryGateway()} />);
+    expect(await screen.findByText("고래")).toBeInTheDocument();
+    expect(screen.queryByLabelText("원문")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "원문 보기" }));
+    expect(screen.getByLabelText("원문")).toHaveValue("Whale");
+    expect(screen.getByRole("button", { name: "원문 숨기기" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("offers a dictionary lookup for a selected word and closes it with Escape first", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const gateway = dictionaryGateway();
+    render(<TranslatorPanel initialText="" defaultTarget="ko" model="m" hasApiKey onClose={onClose} gateway={gateway} />);
+
+    const input = screen.getByLabelText("원문") as HTMLTextAreaElement;
+    await user.type(input, "A blue whale sings");
+    expect(screen.queryByRole("button", { name: /사전에서 찾기/ })).not.toBeInTheDocument();
+
+    selectInTextarea(input, 7, 12);
+    const chip = screen.getByRole("button", { name: '"whale" 사전에서 찾기' });
+    await user.click(chip);
+
+    const dictionary = await screen.findByRole("dialog", { name: "사전: whale" });
+    expect(gateway).toHaveBeenLastCalledWith(expect.objectContaining({
+      mode: "dictionary",
+      word: "whale",
+      context: "A blue whale sings",
+      targetLanguage: "ko"
+    }));
+    expect(await screen.findByText("바다에 사는 거대한 포유류")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /사전에서 찾기/ })).not.toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(dictionary).not.toBeInTheDocument());
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores selections that are too long for a dictionary term", async () => {
+    const user = userEvent.setup();
+    render(<TranslatorPanel initialText="" defaultTarget="ko" model="m" hasApiKey onClose={vi.fn()} gateway={dictionaryGateway()} />);
+    const input = screen.getByLabelText("원문") as HTMLTextAreaElement;
+    const passage = "word ".repeat(20).trim();
+    await user.type(input, passage);
+
+    selectInTextarea(input, 0, passage.length);
+    expect(screen.queryByRole("button", { name: /사전에서 찾기/ })).not.toBeInTheDocument();
+  });
+});

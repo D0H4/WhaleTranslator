@@ -33,6 +33,7 @@ export interface PageTranslationItem {
 export type TranslationInput =
   | { mode: "text"; text: string; targetLanguage: LanguageCode }
   | { mode: "page"; items: readonly PageTranslationItem[]; targetLanguage: LanguageCode; repair?: boolean }
+  | { mode: "dictionary"; word: string; context: string; targetLanguage: LanguageCode }
   | { mode: "connection-test"; provider?: ProviderSettingsInput };
 
 export type TranslationPortInput =

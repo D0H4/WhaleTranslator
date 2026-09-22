@@ -20,9 +20,21 @@ export interface PanelRect {
 export const PANEL_MARGIN = 12;
 export const PANEL_GAP = 8;
 export const PANEL_FALLBACK_OFFSET = 16;
-export const PANEL_DEFAULT_WIDTH = 760;
-export const PANEL_DEFAULT_HEIGHT = 560;
-export const PANEL_MIN_SIZE = 360;
+export const PANEL_DEFAULT_WIDTH = 480;
+export const PANEL_DEFAULT_HEIGHT = 400;
+export const PANEL_MIN_SIZE = 300;
+
+export interface PanelSizing {
+  width: number;
+  height: number;
+  minSize: number;
+}
+
+export const DEFAULT_PANEL_SIZING: PanelSizing = {
+  width: PANEL_DEFAULT_WIDTH,
+  height: PANEL_DEFAULT_HEIGHT,
+  minSize: PANEL_MIN_SIZE
+};
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
@@ -57,10 +69,10 @@ export function captureSelectionAnchor(selection: Selection | null = window.getS
   return null;
 }
 
-export function clampPanelRect(rect: PanelRect, viewport: ViewportSize): PanelRect {
+export function clampPanelRect(rect: PanelRect, viewport: ViewportSize, minSize = PANEL_MIN_SIZE): PanelRect {
   const available = availableSize(viewport);
-  const minimumWidth = Math.min(PANEL_MIN_SIZE, available.width);
-  const minimumHeight = Math.min(PANEL_MIN_SIZE, available.height);
+  const minimumWidth = Math.min(minSize, available.width);
+  const minimumHeight = Math.min(minSize, available.height);
   const width = clamp(rect.width, minimumWidth, available.width);
   const height = clamp(rect.height, minimumHeight, available.height);
   const maximumX = viewport.width - PANEL_MARGIN - width;
@@ -74,10 +86,14 @@ export function clampPanelRect(rect: PanelRect, viewport: ViewportSize): PanelRe
   };
 }
 
-export function getInitialPanelRect(anchor: SelectionAnchor | null, viewport: ViewportSize): PanelRect {
+export function getInitialPanelRect(
+  anchor: SelectionAnchor | null,
+  viewport: ViewportSize,
+  sizing: PanelSizing = DEFAULT_PANEL_SIZING
+): PanelRect {
   const available = availableSize(viewport);
-  const width = Math.min(PANEL_DEFAULT_WIDTH, available.width);
-  const height = Math.min(PANEL_DEFAULT_HEIGHT, available.height);
+  const width = Math.min(sizing.width, available.width);
+  const height = Math.min(sizing.height, available.height);
 
   if (!anchor) {
     return clampPanelRect({
@@ -85,7 +101,7 @@ export function getInitialPanelRect(anchor: SelectionAnchor | null, viewport: Vi
       y: PANEL_FALLBACK_OFFSET,
       width,
       height
-    }, viewport);
+    }, viewport, sizing.minSize);
   }
 
   const spaceBelow = viewport.height - PANEL_MARGIN - anchor.bottom - PANEL_GAP;
@@ -97,32 +113,34 @@ export function getInitialPanelRect(anchor: SelectionAnchor | null, viewport: Vi
     y: opensAbove ? anchor.top - PANEL_GAP - height : anchor.bottom + PANEL_GAP,
     width,
     height
-  }, viewport);
+  }, viewport, sizing.minSize);
 }
 
 export function movePanel(
   start: PanelRect,
   deltaX: number,
   deltaY: number,
-  viewport: ViewportSize
+  viewport: ViewportSize,
+  minSize = PANEL_MIN_SIZE
 ): PanelRect {
   return clampPanelRect({
     ...start,
     x: start.x + deltaX,
     y: start.y + deltaY
-  }, viewport);
+  }, viewport, minSize);
 }
 
 export function resizePanel(
   start: PanelRect,
   deltaX: number,
   deltaY: number,
-  viewport: ViewportSize
+  viewport: ViewportSize,
+  minSize = PANEL_MIN_SIZE
 ): PanelRect {
   const maximumWidth = Math.max(0, viewport.width - PANEL_MARGIN - start.x);
   const maximumHeight = Math.max(0, viewport.height - PANEL_MARGIN - start.y);
-  const minimumWidth = Math.min(PANEL_MIN_SIZE, maximumWidth);
-  const minimumHeight = Math.min(PANEL_MIN_SIZE, maximumHeight);
+  const minimumWidth = Math.min(minSize, maximumWidth);
+  const minimumHeight = Math.min(minSize, maximumHeight);
 
   return {
     x: start.x,

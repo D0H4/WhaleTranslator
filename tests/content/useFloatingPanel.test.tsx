@@ -83,10 +83,10 @@ describe("useFloatingPanel", () => {
     fireEvent.pointerDown(handle, { button: 0, pointerId: 3, clientX: 0, clientY: 0 });
     fireEvent.pointerMove(handle, { pointerId: 3, clientX: 100, clientY: 80 });
     fireEvent.pointerUp(handle, { pointerId: 3 });
-    expect(panel).toHaveStyle({ width: "860px", height: "640px" });
+    expect(panel).toHaveStyle({ width: "580px", height: "480px" });
 
     fireEvent.keyDown(handle, { key: "ArrowLeft" });
-    expect(panel).toHaveStyle({ width: "844px", height: "640px" });
+    expect(panel).toHaveStyle({ width: "564px", height: "480px" });
   });
 
   it("moves with arrow keys from the accessible move handle", () => {
@@ -109,9 +109,9 @@ describe("useFloatingPanel", () => {
 
     await waitFor(() => expect(panel).toHaveStyle({
       left: "12px",
-      top: "12px",
+      top: "88px",
       width: "476px",
-      height: "476px"
+      height: "400px"
     }));
   });
 });

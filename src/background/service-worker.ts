@@ -19,6 +19,7 @@ import type {
 } from "../shared/messages";
 import {
   buildConnectionTestMessages,
+  buildDictionaryMessages,
   buildPageMessages,
   buildTextMessages,
   type ChatMessage
@@ -61,6 +62,7 @@ export async function sendCommandToActiveTab(
 function messagesFor(input: TranslationInput) {
   if (input.mode === "text") return buildTextMessages(input.text, input.targetLanguage);
   if (input.mode === "page") return buildPageMessages(input.items, input.targetLanguage, input.repair);
+  if (input.mode === "dictionary") return buildDictionaryMessages(input);
   return buildConnectionTestMessages();
 }
 

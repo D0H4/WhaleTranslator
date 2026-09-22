@@ -14,24 +14,24 @@ describe("floating panel geometry", () => {
     expect(getInitialPanelRect(
       { left: 100, top: 100, right: 180, bottom: 120 },
       desktop
-    )).toEqual({ x: 100, y: 128, width: 760, height: 560 });
+    )).toEqual({ x: 100, y: 128, width: 480, height: 400 });
   });
 
   it("opens above a selection near the bottom edge", () => {
     expect(getInitialPanelRect(
       { left: 200, top: 740, right: 280, bottom: 760 },
       desktop
-    )).toEqual({ x: 200, y: 172, width: 760, height: 560 });
+    )).toEqual({ x: 200, y: 332, width: 480, height: 400 });
   });
 
   it("falls back to the viewport top-right", () => {
     expect(getInitialPanelRect(null, desktop))
-      .toEqual({ x: 504, y: 16, width: 760, height: 560 });
+      .toEqual({ x: 784, y: 16, width: 480, height: 400 });
   });
 
   it("reduces the default size for a narrow viewport", () => {
     expect(getInitialPanelRect(null, { width: 320, height: 640 }))
-      .toEqual({ x: 12, y: 16, width: 296, height: 560 });
+      .toEqual({ x: 12, y: 16, width: 296, height: 400 });
   });
 
   it("clamps an arbitrary rectangle inside the viewport", () => {
@@ -48,7 +48,7 @@ describe("floating panel geometry", () => {
     expect(resizePanel(start, 2_000, 2_000, desktop))
       .toEqual({ x: 100, y: 100, width: 1168, height: 688 });
     expect(resizePanel(start, -2_000, -2_000, desktop))
-      .toEqual({ x: 100, y: 100, width: 360, height: 360 });
+      .toEqual({ x: 100, y: 100, width: 300, height: 300 });
   });
 
   it("captures the last visible client rectangle as plain coordinates", () => {
