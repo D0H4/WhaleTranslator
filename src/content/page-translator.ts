@@ -49,6 +49,7 @@ export class PageTranslator {
   private entries: PageTextEntry[] = [];
   private batches: PageTextEntry[][] = [];
   private completed = new Set<number>();
+  private applied = new Map<Text, { original: string; translated: string }>();
   private controller: AbortController | null = null;
   private targetLanguage: LanguageCode = "ko";
 
@@ -107,9 +108,10 @@ export class PageTranslator {
   restore(): void {
     this.controller?.abort();
     this.controller = null;
-    for (const entry of this.entries) {
-      if (entry.node.isConnected) entry.node.data = entry.originalText;
+    for (const [node, { original, translated }] of this.applied) {
+      if (node.isConnected && node.data === translated) node.data = original;
     }
+    this.applied.clear();
     this.entries = [];
     this.batches = [];
     this.completed.clear();
@@ -140,8 +142,10 @@ export class PageTranslator {
     if (!translations) throw new WhaleTranslatorError("invalid-response");
     if (signal.aborted) throw new WhaleTranslatorError("cancelled");
     for (const entry of batch) {
-      if (!entry.node.isConnected) continue;
-      entry.node.data = `${entry.leadingWhitespace}${translations.get(entry.id) ?? entry.translatableText}${entry.trailingWhitespace}`;
+      if (!entry.node.isConnected || entry.node.data !== entry.originalText) continue;
+      const translated = `${entry.leadingWhitespace}${translations.get(entry.id) ?? entry.translatableText}${entry.trailingWhitespace}`;
+      entry.node.data = translated;
+      this.applied.set(entry.node, { original: entry.originalText, translated });
     }
     this.completed.add(batchIndex);
     this.setState({ status: "running", completed: this.completed.size, total: this.batches.length });

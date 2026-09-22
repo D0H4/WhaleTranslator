@@ -9,8 +9,6 @@ import {
 } from "./storage";
 import { toPublicError, WhaleTranslatorError } from "../shared/errors";
 import type {
-  PageCommand,
-  RuntimeCommand,
   SettingsRequest,
   SettingsResponse,
   TranslationInput,
@@ -29,6 +27,9 @@ import {
   resolveProviderInput,
   type ProviderSettings
 } from "../shared/settings";
+import { sendCommandToActiveTab } from "../shared/page-commands";
+
+export { sendCommandToActiveTab, supportedPage } from "../shared/page-commands";
 
 const activeRequests = new Map<string, AbortController>();
 let storageInitialization: Promise<void> = Promise.resolve();
@@ -40,23 +41,6 @@ async function initializeStorage(): Promise<void> {
   } catch {
     // Normalized settings still keep the extension usable if a one-time migration cannot be persisted.
   }
-}
-
-function supportedPage(url: string | undefined): boolean {
-  return Boolean(url && /^(https?|file):/i.test(url));
-}
-
-export async function sendCommandToActiveTab(
-  command: PageCommand,
-  api: Pick<typeof chrome, "tabs" | "scripting"> = chrome
-): Promise<void> {
-  const [tab] = await api.tabs.query({ active: true, lastFocusedWindow: true });
-  if (!tab?.id || !supportedPage(tab.url)) {
-    throw new WhaleTranslatorError("restricted-page");
-  }
-  await api.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
-  const message: RuntimeCommand = { kind: "command", command };
-  await api.tabs.sendMessage(tab.id, message);
 }
 
 function messagesFor(input: TranslationInput) {
@@ -242,4 +226,4 @@ if (typeof chrome !== "undefined" && chrome.runtime?.id) {
   registerServiceWorker();
 }
 
-export { handleSettingsRequest, registerServiceWorker, supportedPage };
+export { handleSettingsRequest, registerServiceWorker };

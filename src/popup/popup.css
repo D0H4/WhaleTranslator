@@ -367,6 +367,11 @@ button { color: inherit; white-space: nowrap; }
 @keyframes loading-turn { to { transform: rotate(1turn); } }
 
 .language-section h2 { margin-block-end: var(--space-sm); }
+.page-actions > p { margin: var(--space-xs) 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.5; }
+.page-action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xs); }
+.page-action-buttons .test-provider-button { margin: 0; }
+.page-actions > .save-message { margin-block-end: 0; }
+.page-actions > .save-message.is-error { color: var(--color-danger); }
 .popup-section select { appearance: auto; cursor: pointer; }
 .shortcut-strip { display: grid; gap: var(--space-sm); padding-block: var(--space-md); border-block-end: var(--rule-thin) solid var(--color-divider); }
 .shortcut-strip div { display: grid; grid-template-columns: 4.75rem minmax(0, 1fr); align-items: center; gap: var(--space-xs); }

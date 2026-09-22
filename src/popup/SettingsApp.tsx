@@ -9,6 +9,8 @@ import {
   type ProviderSettingsInput
 } from "../shared/settings";
 import { WhaleMark } from "../content/panel/icons";
+import { sendCommandToActiveTab } from "../shared/page-commands";
+import { toPublicError } from "../shared/errors";
 import {
   ProviderRoutingEditor,
   ProviderSettingsEditor,
@@ -88,6 +90,23 @@ export function SettingsApp() {
   const [touchedFields, setTouchedFields] = useState<Set<string>>(() => new Set());
   const [state, setState] = useState<SaveState>("idle");
   const [message, setMessage] = useState("");
+  const [pageAction, setPageAction] = useState<"translate-page" | "restore-page" | null>(null);
+  const [pageFeedback, setPageFeedback] = useState<{ error: boolean; text: string } | null>(null);
+
+  const runPageAction = async (command: "translate-page" | "restore-page") => {
+    setPageAction(command);
+    setPageFeedback(null);
+    try {
+      await sendCommandToActiveTab(command);
+      setPageFeedback({ error: false, text: command === "translate-page"
+        ? "페이지에서 번역 진행 상황을 확인하세요."
+        : "원문 보기로 전환했습니다." });
+    } catch (error) {
+      setPageFeedback({ error: true, text: toPublicError(error).message });
+    } finally {
+      setPageAction(null);
+    }
+  };
 
   const defaultProvider = useMemo(
     () => providers.find(({ id }) => id === activeProviderId) ?? providers[0],
@@ -322,6 +341,20 @@ export function SettingsApp() {
             <i aria-hidden="true" />{routeHasKey ? "사용 준비됨" : "키 필요"}
           </span>
         </header>
+
+        <section className="popup-section page-actions" aria-labelledby="page-actions-heading">
+          <h2 id="page-actions-heading">현재 페이지</h2>
+          <p>저장된 프로바이더와 도착 언어로 페이지를 번역합니다.</p>
+          <div className="page-action-buttons">
+            <button type="button" className="save-button" disabled={busy || pageAction !== null} onClick={() => void runPageAction("translate-page")}>
+              {pageAction === "translate-page" ? "실행 중…" : "페이지 번역"}
+            </button>
+            <button type="button" className="test-provider-button" disabled={busy || pageAction !== null} onClick={() => void runPageAction("restore-page")}>
+              {pageAction === "restore-page" ? "복원 중…" : "원문 보기"}
+            </button>
+          </div>
+          {pageFeedback && <p className={`save-message ${pageFeedback.error ? "is-error" : ""}`} role={pageFeedback.error ? "alert" : "status"}>{pageFeedback.text}</p>}
+        </section>
 
         <ProviderRoutingEditor
           providers={providers}

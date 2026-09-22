@@ -196,6 +196,7 @@ h1, h2, h3, p, ol, ul { margin: 0; }
 .wt-page-copy span { color: var(--wt-text-muted); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
 .wt-mini-button { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 10px; color: var(--wt-text); background: var(--wt-surface-soft); }
 .wt-mini-button svg { width: 15px; height: 15px; }
+.wt-page-status .wt-mini-button { flex: none; white-space: nowrap; }
 .wt-page-close { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; color: var(--wt-text-muted); background: transparent; border-radius: 8px; }
 .wt-page-close:hover { color: var(--wt-text); background: var(--wt-surface-soft); }
 .wt-page-close svg { width: 18px; height: 18px; }

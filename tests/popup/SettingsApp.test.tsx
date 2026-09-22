@@ -33,17 +33,56 @@ function providerList() {
 describe("SettingsApp", () => {
   const sendMessage = vi.fn();
   const requestPermission = vi.fn();
+  const executeScript = vi.fn();
+  const sendTabMessage = vi.fn();
+  const queryTabs = vi.fn();
 
   beforeEach(() => {
     sendMessage.mockReset();
     requestPermission.mockReset();
     requestPermission.mockResolvedValue(true);
     sendMessage.mockResolvedValue({ ok: true, settings: savedSettings });
+    queryTabs.mockResolvedValue([{ id: 7, url: "https://example.com/article" }]);
+    executeScript.mockReset().mockResolvedValue([]);
+    sendTabMessage.mockReset().mockResolvedValue(undefined);
     vi.stubGlobal("chrome", {
       runtime: { sendMessage },
       permissions: { request: requestPermission },
-      tabs: { create: vi.fn().mockResolvedValue(undefined) }
+      tabs: { create: vi.fn().mockResolvedValue(undefined), query: queryTabs, sendMessage: sendTabMessage },
+      scripting: { executeScript }
     });
+  });
+
+  it("starts page translation and restores the active page without saving draft settings", async () => {
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await screen.findByText("사용 준비됨");
+    await user.click(screen.getByRole("button", { name: "페이지 번역" }));
+    expect(executeScript).toHaveBeenCalledWith({ target: { tabId: 7 }, files: ["content.js"] });
+    expect(sendTabMessage).toHaveBeenLastCalledWith(7, { kind: "command", command: "translate-page" });
+    await user.click(screen.getByRole("button", { name: "원문 보기" }));
+    expect(sendTabMessage).toHaveBeenLastCalledWith(7, { kind: "command", command: "restore-page" });
+    expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "settings:save" }));
+  });
+
+  it("explains restricted pages without injecting a script", async () => {
+    queryTabs.mockResolvedValue([{ id: 7, url: "chrome://settings" }]);
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await user.click(screen.getByRole("button", { name: "페이지 번역" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("브라우저 설정 화면");
+    expect(executeScript).not.toHaveBeenCalled();
+    expect(sendTabMessage).not.toHaveBeenCalled();
+  });
+
+  it("reports injection failures and enables retry", async () => {
+    executeScript.mockRejectedValueOnce(new Error("Cannot access this page"));
+    const user = userEvent.setup();
+    render(<SettingsApp />);
+    await user.click(screen.getByRole("button", { name: "페이지 번역" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("브라우저 설정 화면");
+    expect(screen.getByRole("button", { name: "페이지 번역" })).toBeEnabled();
+    expect(sendTabMessage).not.toHaveBeenCalled();
   });
 
   it("shows every provider and the active model without exposing a saved key", async () => {

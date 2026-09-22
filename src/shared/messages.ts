@@ -2,7 +2,7 @@ import type { PublicError } from "./errors";
 import type { LanguageCode } from "./languages";
 import type { ProviderSettingsInput, PublicSettings } from "./settings";
 
-export type PageCommand = "translate-selection" | "toggle-page-translation";
+export type PageCommand = "translate-selection" | "toggle-page-translation" | "translate-page" | "restore-page";
 
 export interface RuntimeCommand {
   kind: "command";
