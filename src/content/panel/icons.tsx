@@ -1,4 +1,5 @@
 import type { ImgHTMLAttributes, SVGProps } from "react";
+import whaleLogo from "../../../static/icons/icon-128.png?inline";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -7,11 +8,7 @@ function IconBase({ children, ...props }: IconProps) {
 }
 
 export function WhaleMark(props: ImgHTMLAttributes<HTMLImageElement>) {
-  const src = typeof chrome !== "undefined" && chrome.runtime?.getURL
-    ? chrome.runtime.getURL("icons/icon-128.png")
-    : "/static/icons/icon-128.png";
-
-  return <img src={src} alt="" aria-hidden="true" draggable={false} {...props} />;
+  return <img src={whaleLogo} alt="" aria-hidden="true" draggable={false} {...props} />;
 }
 
 export const CloseIcon = (props: IconProps) => <IconBase {...props}><path d="m6 6 12 12M18 6 6 18" /></IconBase>;
