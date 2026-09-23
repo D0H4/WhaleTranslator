@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { ImgHTMLAttributes, SVGProps } from "react";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -6,15 +6,12 @@ function IconBase({ children, ...props }: IconProps) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>{children}</svg>;
 }
 
-export function WhaleMark(props: IconProps) {
-  return (
-    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true" {...props}>
-      <rect width="32" height="32" rx="10" fill="currentColor" />
-      <path d="M7.5 18.3c2.9 1.3 5.3 1.1 7.3-.5-1.7-1.4-2.4-3.2-2.2-5.5 2.2.3 3.8 1.3 4.9 3.1 1-1.9 2.5-3 4.7-3.5.4 2.4-.1 4.3-1.7 5.8 1.4.8 2.7 1.1 4 .8-1.5 3.9-4.5 5.8-9 5.8-3.9 0-6.6-2-8-6Z" fill="var(--whale-mark-ink)" />
-      <path d="M9.6 15.2c.9-3.8 3.5-5.8 7.7-5.8" stroke="var(--whale-mark-ink)" strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="12" cy="16.8" r="1" fill="currentColor" />
-    </svg>
-  );
+export function WhaleMark(props: ImgHTMLAttributes<HTMLImageElement>) {
+  const src = typeof chrome !== "undefined" && chrome.runtime?.getURL
+    ? chrome.runtime.getURL("icons/icon-128.png")
+    : "/static/icons/icon-128.png";
+
+  return <img src={src} alt="" aria-hidden="true" draggable={false} {...props} />;
 }
 
 export const CloseIcon = (props: IconProps) => <IconBase {...props}><path d="m6 6 12 12M18 6 6 18" /></IconBase>;
