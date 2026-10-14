@@ -10,6 +10,25 @@ describe("parsePageResponse", () => {
 });
 
 describe("PageTranslator", () => {
+  it("restores original wrapping styles without overwriting live style changes", async () => {
+    document.body.innerHTML = '<p style="word-break: break-all !important; color: red">Hello</p>';
+    const paragraph = document.querySelector("p")!;
+    const translator = new PageTranslator(async () => '{"items":[{"id":"wt-0","text":"파이널 진출"}]}');
+    await translator.start(document.body, "ko");
+    expect(paragraph.style.wordBreak).toBe("keep-all");
+    expect(paragraph.style.overflowWrap).toBe("anywhere");
+    translator.restore();
+    expect(paragraph.style.wordBreak).toBe("break-all");
+    expect(paragraph.style.getPropertyPriority("word-break")).toBe("important");
+    expect(paragraph.style.overflowWrap).toBe("");
+    expect(paragraph.style.color).toBe("red");
+
+    await translator.start(document.body, "ko");
+    paragraph.style.setProperty("word-break", "normal");
+    translator.restore();
+    expect(paragraph.style.wordBreak).toBe("normal");
+  });
+
   it("preserves text updated by the page while a request is pending", async () => {
     document.body.innerHTML = "<p>Hello</p>";
     const node = document.querySelector("p")!.firstChild as Text;

@@ -50,6 +50,7 @@ export class PageTranslator {
   private batches: PageTextEntry[][] = [];
   private completed = new Set<number>();
   private applied = new Map<Text, { original: string; translated: string }>();
+  private wrappingStyles = new Map<HTMLElement, { property: string; value: string; priority: string; applied: string }[]>();
   private controller: AbortController | null = null;
   private targetLanguage: LanguageCode = "ko";
 
@@ -112,6 +113,14 @@ export class PageTranslator {
       if (node.isConnected && node.data === translated) node.data = original;
     }
     this.applied.clear();
+    for (const [element, properties] of this.wrappingStyles) {
+      for (const { property, value, priority, applied } of properties) {
+        if (element.style.getPropertyValue(property) !== applied || element.style.getPropertyPriority(property) !== "important") continue;
+        if (value) element.style.setProperty(property, value, priority);
+        else element.style.removeProperty(property);
+      }
+    }
+    this.wrappingStyles.clear();
     this.entries = [];
     this.batches = [];
     this.completed.clear();
@@ -146,6 +155,17 @@ export class PageTranslator {
       const translated = `${entry.leadingWhitespace}${translations.get(entry.id) ?? entry.translatableText}${entry.trailingWhitespace}`;
       entry.node.data = translated;
       this.applied.set(entry.node, { original: entry.originalText, translated });
+      const parent = entry.node.parentElement;
+      if (parent && !this.wrappingStyles.has(parent)) {
+        const properties = ([["word-break", "keep-all"], ["overflow-wrap", "anywhere"]] as const).map(([property, applied]) => ({
+          property,
+          applied,
+          value: parent.style.getPropertyValue(property),
+          priority: parent.style.getPropertyPriority(property)
+        }));
+        this.wrappingStyles.set(parent, properties);
+        for (const { property, applied } of properties) parent.style.setProperty(property, applied, "important");
+      }
     }
     this.completed.add(batchIndex);
     this.setState({ status: "running", completed: this.completed.size, total: this.batches.length });
